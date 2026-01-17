@@ -1,0 +1,12 @@
+{
+"Name": "Fetal Tissue Annotation Challenge FeTA Dataset", 
+"BIDSVersion": "1.6.1", 
+"DatasetType": "derivative", 
+"License": "KISPI License", 
+"Authors": ["Kelly Payette", "Andras Jakab"], 
+"Acknowledgements": "Special thanks to the data contributors, annotators and the contributors of the initial benchmarks on the FeTA dataset Priscille Guerrier de Dumast, Hamza Kebiri, Ivan Ezhov, Johannes Paetzold, Suprosanna Shit, Asim Iqbal, Romesa Khan, Raimund Kottke, Patrice Grehten, Hui Ji, Levente Lanczi, Marianna Nagy, Monika Beresova, Thi Dao Nguyen, Giancarlo Natalucci, Theofanis Karayannis, Bjoern Menze, Meritxell Bach Cuadra",
+"HowToAcknowledge": "Please cite our Preprint: Payette et al. (2020) A comparison of automatic multi-tissue segmentation methods of the human fetal brain using the FeTA Dataset; or the paper after publication. ArXiv", 
+"Funding": ["EMDO Foundation", "OPO Foundation", "Prof. Dr. Max Cloetta Foundation", "FZK, Forschungszentrum für das Kind Grant", "Anna-Mueller-Grocholski Foundation", "ZNZ PhD Grant"], 
+"EthicsApprovals": "Mothers of the healthy fetuses participating in the respective research studies were prospectively informed about the study by members of the research team and gave written consent for their participation. Mothers of fetuses with pathology included in the current work were scanned as part of their routine clinical care and gave informed written consent for the re-use of their data. The ethical committee of the Cantone of Zürich approved the prospective and retrospective studies that collected and analysed the MRI data (Decision numbers: 2017-00885, 2016-01019, 2017-00167), and a waiver for an ethical approval was acquired for the release of an irreversibly anonymized dataset."
+}
+
