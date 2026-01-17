@@ -23,6 +23,8 @@ conda-unpack
 
 <pre><code>
 git clone https://github.com/mafirenze/cSVR.git
+cd ./cSVR/nesvor_local
+pip install -e .
 # Copy pretrained checkpoints into model_checkpoints folder
 
 cp UNet_last.ckpt cSVR/model_checkpoints/
