@@ -14,7 +14,8 @@
 
 <pre><code>
 git clone https://github.com/mafirenze/cSVR.git
-conda create env cSVR_env_v1.yaml
+conda env create -f cSVR_env_v1.yaml
+conda activate cSVR_env_v1
 pip install git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
 cd cSVR
 pip install -e .
