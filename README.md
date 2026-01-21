@@ -13,11 +13,11 @@
 <p>Use the following commands to install the code base from source:</p>
 
 <pre><code>
-git clone https://github.com/mafirenze/cSVR.git
+git clone https://github.com/MedicalVisionGroup/cSVR.git
+cd cSVR
 conda env create -f cSVR_env_v1.yaml
 conda activate cSVR_env_v1
 pip install git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
-cd cSVR
 pip install -e .
 
 # Copy pretrained checkpoints into model_checkpoints folder
