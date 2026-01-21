@@ -5,9 +5,8 @@
 <h2>Pre-requisites</h2>
 
 
-<p>All pre-requisites are listed in <code>env_cSVR.yml</code>. The easiest way to install the environment is directly by downloading the environment file in
-<a href="https://drive.google.com/drive/folders/14lG-uKZLcrR_jPe-SXfNCmOJfhzCV7mQ?usp=sharing" target="_blank">Google Drive</a>.</p>. Also, the last checkpoints of
-the MLP and UNet model can be downloaded here.
+<p>All pre-requisites are listed in <code>cSVR_env.yaml</code>. The easiest way to install them is directly through the environment folder from 
+<a href="https://drive.google.com/drive/folders/11h7aLank9So8vJciEMKXPlpXdakGljwS?usp=drive_link" target="_blank">Google Drive</a>.</p>
 
 <p>Use the following commands to set up the environment from .tar.gz file :</p>
 
@@ -19,13 +18,13 @@ source ~/cSVR_env/bin/activate
 conda-unpack
 </code></pre>
 
-<p>Use the following commands to download the code base :</p>
+<p>Use the following commands to download the code bse :</p>
 
 <pre><code>
 git clone https://github.com/mafirenze/cSVR.git
-# Copy pretrained checkpoints into model_checkpoints folder
+# Copy pretrained checkpoints into the repo (after manually downloading them from Google Drive)
 
-cp UNet_last.ckpt cSVR/model_checkpoints/
+cp Unet_last.ckpt cSVR/model_checkpoints/
 cp MLP_last.ckpt  cSVR/model_checkpoints/
 
 </code></pre>
@@ -118,7 +117,7 @@ Reconstruction can be performed using either
 <h3>Gradient Descent Reconstruction</h3>
 
 <pre><code>
-python run_pipeline_cSVR.py sub0 sub1 \
+python process_nifti_fast.py sub0 sub1 \
     --suffix _run1.nii.gz \
     --run-cSVR \
     --gd-recon
@@ -127,7 +126,7 @@ python run_pipeline_cSVR.py sub0 sub1 \
 <h3>Implicit Neural Representation (INR) Reconstruction</h3>
 
 <pre><code>
-python run_pipeline_cSVR.py sub0 sub1 \
+python process_nifti_fast.py sub0 sub1 \
     --suffix _run1.nii.gz \
     --run-cSVR \
     --inr-recon
