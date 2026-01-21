@@ -1,0 +1,8 @@
+.*
+!.gitignore
+!.github/
+
+# common junk
+.DS_Store
+__pycache__/
+*.pyc
