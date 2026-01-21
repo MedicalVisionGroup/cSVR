@@ -5,24 +5,20 @@
 <h2>Pre-requisites</h2>
 
 
-<p>All pre-requisites are listed in <code>env_cSVR.yml</code>. The easiest way to install the environment is directly by downloading the environment file in
-<a href="https://drive.google.com/drive/folders/14lG-uKZLcrR_jPe-SXfNCmOJfhzCV7mQ?usp=sharing" target="_blank">Google Drive</a>.</p>. Also, the last checkpoints of
-the MLP and UNet model can be downloaded here.
+<p>All pre-requisites are listed in <code>cSVR_env_v1.yaml</code>. The model checkpoints are located here
+<a href="https://drive.google.com/drive/folders/14lG-uKZLcrR_jPe-SXfNCmOJfhzCV7mQ?usp=sharing" target="_blank">Google Drive</a>.</p>. 
 
-<p>Use the following commands to set up the environment from .tar.gz file :</p>
+<p>Use the following commands to set up the environment from .yaml file :</p>
 
-<pre><code>
-download from _env
-mkdir -p ~/cSVR_env
-tar -xzf cSVR_env.tar.gz -C ~/cSVR_env
-source ~/cSVR_env/bin/activate
-conda-unpack
-</code></pre>
-
-<p>Use the following commands to download the code base :</p>
+<p>Use the following commands to install the code base from source:</p>
 
 <pre><code>
 git clone https://github.com/mafirenze/cSVR.git
+conda create env cSVR_env_v1.yaml
+pip install git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
+cd cSVR
+pip install -e .
+
 # Copy pretrained checkpoints into model_checkpoints folder
 
 cp UNet_last.ckpt cSVR/model_checkpoints/
