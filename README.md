@@ -2,6 +2,8 @@
 
 <h1> Fast Multi-Stack Slice-to-Volume Reconstruction via Multi-Scale Unrolled Optimization </h1>
 
+<p>Paper: <a href="https://arxiv.org/html/2601.07519v1" target="_blank">https://arxiv.org/html/2601.07519v1</a></p>
+
 <h2>Pre-requisites</h2>
 
 
