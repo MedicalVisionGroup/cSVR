@@ -58,10 +58,14 @@ def main():
         # LOAD MODEL LOGIC (Copied/Adapted from run_cSVR_fast.py to ensure single load)
         model1024 = True
         # root_path_mine = '/data/vision/polina/users/mfirenze/svr_my_train_2024/checkpoints/'
-        # root_path_new = '/data/vision/polina/users/mfirenze/cSVR/checkpoints/'
+        root_path_new = '/data/vision/polina/users/mfirenze/cSVR/checkpoints/'
         # ckpt_path_recon = "feta3d0_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_multi_crop_l22_loss_grid_multiscale_rot40_nodes100_bigger_model_v2_out_plane12_augs_v2_"
         # ckpt_path_mlp = "feta3d0_mlp_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_MLP_classification_multihot_loss2_40_0.03_0.1_180_12_lr1e-05_mlp_norm_64size_vec_rots_loss_smooth_huge_mlp4_drop_0.2_augs"
         # ckpt_path_mlp = "feta3d0_mlp_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_MLP_classification_multihot_loss2_40_0.03_0.1_180_12_lr0.0001_mlp_norm_64size_vec_rots_loss_smooth_huge_mlp4_drop_0.2_augs_rep_small_unet_small_mlp_remove_3D_2D_bigger_unet_small_lr"
+      #  ckpt_path_mlp = "feta3d0_mlp_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_MLP_classification_multihot_order_40_0.03_0.1_12_12_lr0.0001__MLP_only_order"
+        #ckpt_path_mlp = "feta3d0_mlp_multi_stack_svr_final_sb2_crop_flow_SNet3d2_256_MLP_classification_multihot_order_40_0.03_0.1_12_12_lr0.0001__MLP_only_order_eps0_small256"
+        ckpt_path_mlp = "feta3d0_mlp_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_MLP_classification_multihot_order_40_0.03_0.1_12_12_lr0.0001__MLP_only_order"
+        ckpt_path_mlp = "feta3d0_mlp_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_MLP_classification_multihot_order_40_0.03_0.1_12_12_lr0.0001__MLP_only_order_eps0"
 
 
         
@@ -76,14 +80,18 @@ def main():
         start = time.time()
        # trainee.load_state_dict(torch.load(path.join(root_path_mine, ckpt_path_recon, 'best.ckpt'),map_location='cuda')['state_dict'])
         trainee.load_state_dict(torch.load(path.join('./model_checkpoints', 'UNet_last.ckpt'),map_location='cuda')['state_dict'])
+
         end = time.time()
         print(f"Loading SVR checkpoint time {end - start:.6f} seconds")
         model = trainee.model.cuda()
 
         start = time.time()
         trainee_mlp = models.segment(model=models.flow_SNet3d2_1024_MLP())
-        #trainee_mlp.load_state_dict(torch.load(path.join(root_path_new, ckpt_path_mlp, 'best.ckpt'), map_location='cuda')['state_dict'], strict = False)
-        trainee_mlp.load_state_dict(torch.load(path.join('./model_checkpoints', 'MLP_last.ckpt'), map_location='cuda')['state_dict'], strict = False)
+        #trainee_mlp = models.segment(model=models.flow_SNet3d2_256_MLP())
+
+        trainee_mlp.load_state_dict(torch.load(path.join(root_path_new, ckpt_path_mlp, 'last.ckpt'), map_location='cuda')['state_dict'], strict = False)
+        #trainee_mlp.load_state_dict(torch.load(path.join('./model_checkpoints', 'MLP_last.ckpt'), map_location='cuda')['state_dict'], strict = False)
+
 
 
         end = time.time()

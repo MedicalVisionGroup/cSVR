@@ -112,12 +112,13 @@ def run_svr_inference(model, model_mlp, args=None, init_stacks_input=None, downs
             stack1, stack2 ,stack3 = divide_into_stacks(init_stacks, downsampled_input)
           #  stack = model_mlp((downsampled_input,init_stacks))
 
-
+            rot_90_pred = False
             stack_pred = stack_mlp[:,0:6]
             order_reverse = stack_pred.argmax(dim=1)  % 2
 
-            rot_pred = stack_mlp[:,6:]
-            rot90_amount = rot_pred.argmax(dim=1)  % 4
+            if(rot_90_pred):
+                rot_pred = stack_mlp[:,6:]
+                rot90_amount = rot_pred.argmax(dim=1)  % 4
 
 
 
@@ -125,14 +126,13 @@ def run_svr_inference(model, model_mlp, args=None, init_stacks_input=None, downs
 
             for i in range(3):
      #  stacks[i] = stacks[i].flip(dims=[2]) # make this 18-
-
-
-                if rot90_amount[i] == 1:
-                  stacks[i] = torch.rot90(stacks[i], k=-1, dims=(3,4))
-                if rot90_amount[i] == 2:
-                  stacks[i] = torch.rot90(stacks[i], k=1, dims=(3,4))
-                if rot90_amount[i] == 3:
-                  stacks[i] = torch.rot90(stacks[i], k=2, dims=(3,4))
+                if(rot_90_pred):
+                    if rot90_amount[i] == 1:
+                        stacks[i] = torch.rot90(stacks[i], k=-1, dims=(3,4))
+                    if rot90_amount[i] == 2:
+                        stacks[i] = torch.rot90(stacks[i], k=1, dims=(3,4))
+                    if rot90_amount[i] == 3:
+                        stacks[i] = torch.rot90(stacks[i], k=2, dims=(3,4))
 
                 if order_reverse[i] == 1:
                    stacks[i] = torch.rot90(stacks[i], k=2, dims=(2,3))

@@ -43,50 +43,6 @@ class Flow_SNet_MLP(nn.Module):
         self.count = 0 # if want to start applying projection after some iteration
         self.drop_out = drop_out
 
-       # self.pool4mlp = Pool4MLP(pool_feature=3, pool_slices=8)
-        #self.mlp = MLP(hidden_sizes=[128, 64], out_features=3)
-       # self.mlp = MLP(hidden_sizes=[128, 64], out_features=7)
-        #self.mlp = MLP(hidden_sizes=[128, 64], out_features=8)
-      #  self.mlp = MLP(hidden_sizes=[128, 64], out_features=9)
-        
-        # #more slice feats 
-      #  self.pool4mlp = Pool4MLP(pool_feature=3, pool_slices=15)
-      #  self.mlp = MLP(hidden_sizes=[128, 64], in_features = 15, out_features=9)
-        
-        # self.pool4mlp = Pool4MLP(pool_feature=3, pool_slices=15)
-        # self.mlp = MLP(hidden_sizes=[128, 64], in_channel_features = 3, in_slice_features = 15, out_features=9)
-
-    
-        # #more slice feats  + bigger MLP
-        # self.pool4mlp = Pool4MLP(pool_feature=3, pool_slices=15)
-        # self.mlp = MLP(hidden_sizes=[256, 128], in_features = 15, out_features=9)
-
-        #more slice feats  + bigger MLP
-        # self.pool4mlp = Pool4MLP(pool_feature=3, pool_slices=15)
-        # self.mlp = MLP(hidden_sizes=[256, 128], in_channel_features = 3, in_slice_features = 15, out_features=9)
-
-        # self.pool4mlp = Pool4MLP(pool_feature=30, pool_slices=8)
-        # self.mlp = MLP(hidden_sizes=[256, 128], in_channel_features = 30, in_slice_features = 8, out_features=9)
-
-
-        #attention mechanism
-        # self.pool4mlp = Pool4MLP_attention(pool_feature=3, pool_slices=8)
-        # self.mlp = MLP(hidden_sizes=[256, 128], in_features = 8, out_features=9)
-
-        # more slice features and 16x16
-        # self.pool4mlp = Pool4MLP(pool_feature=30, pool_slices=8)
-        # self.mlp = MLP(hidden_sizes=[256, 128], in_channel_features = 30, in_slice_features = 8, out_features=9, plane_features=16)
-       
-        # self.pool4mlp = Pool4MLP(pool_feature=30, pool_slices=15)
-        # self.mlp = MLP(hidden_sizes=[256, 128], in_channel_features = 30, in_slice_features = 15, out_features=9, plane_features=16)
-
-    #     self.pool4mlp = Pool4MLP(pool_feature=30, pool_slices=15)
-    #     self.mlp = MLP(hidden_sizes=[256, 128], in_channel_features = 30, in_slice_features = 15, out_features=5, plane_features=32)
-
-        # self.pool4mlp = Pool4MLP(pool_feature=30, pool_slices=15)
-      # # self.mlp = MLP(hidden_sizes=[256, 128], in_channel_features = 30, in_slice_features = 15, out_features=9, plane_features=32)
-        # self.mlp = MLP(hidden_sizes=[256, 128], in_channel_features = 30, in_slice_features = 15, out_features=6, plane_features=32)
-
         self.drop_out = 0
         
     #     self.pool4mlp = Pool4MLP(pool_feature=30, pool_slices=15)
@@ -118,7 +74,7 @@ class Flow_SNet_MLP(nn.Module):
 
         # # SMALL
         self.pool4mlp = Pool4MLP(pool_feature=30, pool_slices=15)
-        self.mlp = MLP_norm(hidden_sizes=[256, 128], in_channel_features = 30, in_slice_features = 15, out_features=10, plane_features=64, dropout=self.drop_out)
+        self.mlp = MLP_norm(hidden_sizes=[256, 128], in_channel_features = 30, in_slice_features = 15, out_features=6, plane_features=64, dropout=self.drop_out)
 
         # MEDIUM 
         # self.pool4mlp = Pool4MLP(pool_feature=30, pool_slices=15)
