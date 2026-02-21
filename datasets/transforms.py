@@ -10,7 +10,7 @@ import torch.nn.functional as FF
 from cornucopia.utils.warps import affine_flow
 from cornucopia.random import Normal
 import cornucopia as cc
-
+import pdb
 
 
 project_root = "./models"
@@ -227,10 +227,17 @@ class GenerateMotionTrajectory:
             elif i == 2:
                 bulk_rotations_list.append(bulk3)
 
-        # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0, translations), rotations=Normal(0, rotations/2),
+        #pdb.set_trace()
+        # bulk_rotations_list_1 = [[12, 179, 180], [12, 180, 12], [180, 12, 12]]
+        # bulk_rotations_list_2 = [[12, 181, 180], [12, 180, 12], [180, 12, 12]]
+        # # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0, translations), rotations=Normal(0, rotations/2),
         #                                              bulk_translations=bulk_translations, bulk_rotations=(negate_list(bulk_rotations_list[s]), bulk_rotations_list[s]), shears=0, zooms=0) for s in self.slice]
-        self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0, translations), rotations=Normal(0, rotations/2),
-                                                     bulk_translations=bulk_translations, bulk_rotations=(negate_list(bulk_rotations_list[s]), bulk_rotations_list[s]), shears=0, zooms=0) for s in self.slice]
+        # RAND BULK ROT 180
+        self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0, translations), rotations=Normal(0, rotations/2),bulk_translations=bulk_translations, bulk_rotations=(negate_list(bulk_rotations_list[s]), bulk_rotations_list[s]), shears=0, zooms=0, rand_rot_bulk180=True) for s in self.slice]
+
+        # pdb.set_trace()
+        # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0, translations), rotations=Normal(0, rotations/2),
+        #                                              bulk_translations=bulk_translations, bulk_rotations=(bulk_rotations_list_1[s], bulk_rotations_list_2[s]), shears=0, zooms=0) for s in self.slice]
 
         # sample trajectories!
         # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, trajectory_mode=True,trajectory_path='/data/vision/polina/users/mfirenze/SVoRT/dataset/traj.npy',
@@ -434,7 +441,7 @@ class GenerateMotionTrajectory:
             STACK1 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[0], [sl_shape,sl_shape,sl_shape], device=flow.device)
             STACK2 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[1], [sl_shape,sl_shape,sl_shape], device=flow.device)
             STACK3 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[2], [sl_shape,sl_shape,sl_shape], device=flow.device)
-            no_stack_info = True # do not give fact that slices are orthogonal up!
+            no_stack_info = False # do not give fact that slices are orthogonal up!
 
             ALL_STACKS = torch.zeros((2, sl_shape*3, 4, 4), device=flow.device)
             ALL_STACKS[0, 0:sl_shape] = STACK1

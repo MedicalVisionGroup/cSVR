@@ -47,10 +47,10 @@ git commit -m "$JOB_NAME" || echo "No commited changes"
 
 
 # CHANGE SNET BEFORE RUNNING THIS
-python /data/vision/polina/users/mfirenze/cSVR/train_from_bulk_wdb_yaml.py --config ./experiments/feb21_node5_repeat_180_svort_no_slice_param.yaml # export JOB_NAME="jan14__mlp_norm_64size_vec_rots_rep_large_unet"
+python /data/vision/polina/users/mfirenze/cSVR/train_from_bulk_wdb_yaml.py --config ./experiments/feb21_node5_bulk180_stack_order.yaml # export JOB_NAME="jan14__mlp_norm_64size_vec_rots_rep_large_unet"
 
 #python /data/vision/polina/users/mfirenze/cSVR/train_from_bulk_wdb_yaml.py --config ./experiments/feb17_node5_repeat_180_in_plane.yaml # export JOB_NAME="jan14__mlp_norm_64size_vec_rots_rep_large_unet"
-# export JOB_NAME="feb21_node5_repeat_180_svort_no_slice_param"
+# export JOB_NAME="feb21_node5_bulk180_stack_order"
 
 # envsubst < job1_h200_2.sh | sbatch 
 

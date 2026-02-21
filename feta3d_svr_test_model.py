@@ -42,7 +42,7 @@ seed_everything(seed_num, workers=True)
 save_images = True #False #True #True
 subsample=1
 img_num = 3 # 0 # which image in dataset want to test
-tot_test = 7 # CHANGE THIS TO 3 when doing actual tests
+tot_test = 5 # CHANGE THIS TO 3 when doing actual tests
 
 
 # LOAD MODEL
@@ -50,7 +50,7 @@ folder = 'run5'
 model1024 = True
 model256 = False
 model512 = False
-mlp_test = True
+mlp_test = False
 
 slice_size = 128
 ckpt_path_recon = "feta3d0_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_multi_crop_l22_loss_grid_multiscale_rot40_nodes100_bigger_model_v2_out_plane12_augs_v2_"
@@ -78,7 +78,7 @@ print("no load!")
 
 trainee.load_state_dict(torch.load(path.join(root_path_mine, ckpt_path_recon, 'last.ckpt'))['state_dict'], strict=False)
 model = trainee.model.cuda()
-sets = datasets.feta3d0_multi_stack_svr_final_sb2_crop(subsample=subsample, zooms=0.3, mlp_training= False, rotations=40, translations=0.03, bulk_rotations_plane=180, bulk_rotations_tr_plane=12) #spacing = 3
+sets = datasets.feta3d0_multi_stack_svr_final_sb2_crop(subsample=subsample, zooms=0.3, mlp_training= False, rotations=40, translations=0.03, bulk_rotations_plane=0, bulk_rotations_tr_plane=12) #spacing = 3
 
 #sets = datasets.feta3d0_mlp_multi_stack_svr_final_sb2_crop(subsample=subsample, rotations=40, translations=0.03, bulk_rotations_plane=180, bulk_rotations_tr_plane=12, zooms=0.3, mlp_training= False) #spacing = 3
 
