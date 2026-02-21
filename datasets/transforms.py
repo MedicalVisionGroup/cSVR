@@ -229,9 +229,12 @@ class GenerateMotionTrajectory:
 
         # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0, translations), rotations=Normal(0, rotations/2),
         #                                              bulk_translations=bulk_translations, bulk_rotations=(negate_list(bulk_rotations_list[s]), bulk_rotations_list[s]), shears=0, zooms=0) for s in self.slice]
+        self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0, translations), rotations=Normal(0, rotations/2),
+                                                     bulk_translations=bulk_translations, bulk_rotations=(negate_list(bulk_rotations_list[s]), bulk_rotations_list[s]), shears=0, zooms=0) for s in self.slice]
+
         # sample trajectories!
-        self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, trajectory_mode=True,trajectory_path='/data/vision/polina/users/mfirenze/SVoRT/dataset/traj.npy',
-                                                     bulk_rotations=(negate_list(bulk_rotations_list[s]), bulk_rotations_list[s]), shears=0, zooms=0,  trajectory_time_step=(1,2),trajectory_relative=True) for s in self.slice]
+        # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, trajectory_mode=True,trajectory_path='/data/vision/polina/users/mfirenze/SVoRT/dataset/traj.npy',
+        #                                              bulk_rotations=(negate_list(bulk_rotations_list[s]), bulk_rotations_list[s]), shears=0, zooms=0,  trajectory_time_step=(1,2),trajectory_relative=True) for s in self.slice]
 
         # SPECIFY AUGMENTATIONS
         prob_aug = 0.3
@@ -431,11 +434,17 @@ class GenerateMotionTrajectory:
             STACK1 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[0], [sl_shape,sl_shape,sl_shape], device=flow.device)
             STACK2 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[1], [sl_shape,sl_shape,sl_shape], device=flow.device)
             STACK3 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[2], [sl_shape,sl_shape,sl_shape], device=flow.device)
+            no_stack_info = False # do not give fact that slices are orthogonal up!
 
             ALL_STACKS = torch.zeros((2, sl_shape*3, 4, 4), device=flow.device)
             ALL_STACKS[0, 0:sl_shape] = STACK1
             ALL_STACKS[0, sl_shape:sl_shape*2] = STACK2
             ALL_STACKS[0, sl_shape*2:sl_shape*3] = STACK3
+            if(no_stack_info):
+                print("NO STACK INFORMATION!!!")
+                ALL_STACKS[0, sl_shape:sl_shape*2] = STACK1
+                ALL_STACKS[0, sl_shape*2:sl_shape*3] = STACK1
+            
 
             # save slice height
             ALL_STACKS[1, 0:sl_shape] = STACK1
