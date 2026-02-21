@@ -862,6 +862,8 @@ class Flow_UNet(nn.Module):
         self.dec_blocks = [None] * (num_pool + 1)
         self.flo_blocks = [None] * (num_pool + 1)
 
+        print("num pool")
+        print(num_pool)
         self.mode = 'linear' if X == 1 else 'bilinear' if X == 2 else 'trilinear' if X == 3 else 'nearest'
         self.mask = mask
         self.seg_outputs = []

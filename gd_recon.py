@@ -11,12 +11,13 @@ def svr(
     no_global_exclusion=False,
     n_iter=None,
     n_iter_rec=None,
+    simulated_slices=None,
 ):
     args = ["svr"]
 
     if isinstance(input_slices, str):
         args += ["--input-slices", str(input_slices)]
-    
+
     args += ["--output-volume", str(output_volume)]
 
     if no_global_exclusion:
@@ -27,6 +28,9 @@ def svr(
 
     if n_iter_rec is not None:
         args += ["--n-iter-rec", str(n_iter_rec)]
+
+    if simulated_slices is not None:
+        args += ["--simulated-slices", str(simulated_slices)]
 
     old_argv = sys.argv
     sys.argv = ["nesvor"] + args
@@ -44,12 +48,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--input-slices", type=str, required=True)
     parser.add_argument("--output-volume", type=str, required=True)
+    parser.add_argument("--simulated-slices", type=str, required=True)
     args = parser.parse_args()
 
     print("before running svr")
     svr(
         input_slices=load_slices(args.input_slices, device=torch.device("cuda")),
         output_volume=args.output_volume,
+        simulated_slices=args.simulated_slices,
         no_global_exclusion=True,
         n_iter=5,
         n_iter_rec=3,

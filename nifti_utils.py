@@ -162,6 +162,78 @@ def permute_preserve_hand(arr_in):
     else:
         return arr_in
 
+
+def normalize_stack(root_dir, suffix="auto2", output_dir=None, tol=1e-3):
+    
+    nii_files = []
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        for filename in filenames:
+            if (filename.endswith(".nii") or filename.endswith(".nii.gz") ) and not filename.startswith("."):
+                nii_files.append(os.path.join(dirpath, filename))
+    
+    old_files = False
+    if old_files:
+        
+        sag_indexes = [i for i, f in enumerate(nii_files) if f.endswith("n_sag.nii")][0]    
+        cor_indexes = [i for i, f in enumerate(nii_files) if f.endswith("n_cor.nii")][0]
+        axi_indexes = [i for i, f in enumerate(nii_files) if f.endswith("n_axi.nii")][0]
+
+        sag_mask_indexes = [i for i, f in enumerate(nii_files) if f.endswith("maskN_sag.nii")][0]
+        cor_mask_indexes = [i for i, f in enumerate(nii_files) if f.endswith("maskN_cor.nii")][0]
+        axi_mask_indexes = [i for i, f in enumerate(nii_files) if f.endswith("maskN_axi.nii")][0]
+    else:
+        print("Other file format")
+        sag_indexes = [i for i, f in enumerate(nii_files) if "mask" not in f and f.endswith("_sag.nii")][0]    
+        cor_indexes = [i for i, f in enumerate(nii_files) if "mask" not in f and f.endswith("_cor.nii")][0]
+        axi_indexes = [i for i, f in enumerate(nii_files) if "mask" not in f and f.endswith("_axi.nii")][0]
+
+        sag_mask_indexes = [i for i, f in enumerate(nii_files) if "mask" in f and f.endswith("_sag.nii")][0]
+        cor_mask_indexes = [i for i, f in enumerate(nii_files) if "mask" in f and f.endswith("_cor.nii")][0]
+        axi_mask_indexes = [i for i, f in enumerate(nii_files) if "mask" in f and f.endswith("_axi.nii")][0]
+        
+    
+    img1_nii = nib.load(nii_files[sag_indexes])
+    voxel_size1 = img1_nii.header.get_zooms()
+    img1 = img1_nii.get_fdata()
+
+    mask1 = nib.load(nii_files[sag_mask_indexes])
+    mask1 = mask1.get_fdata()
+
+    img2_nii = nib.load(nii_files[cor_indexes])
+    voxel_size2 = img2_nii.header.get_zooms()
+    img2 = img2_nii.get_fdata()
+
+    mask2 = nib.load(nii_files[cor_mask_indexes])
+    mask2 = mask2.get_fdata()
+
+    img3_nii = nib.load(nii_files[axi_indexes])
+    voxel_size3 = img3_nii.header.get_zooms()
+    img3 = img3_nii.get_fdata()
+    
+    mask3 = nib.load(nii_files[axi_mask_indexes])
+    mask3 = mask3.get_fdata()
+
+    if not (abs(voxel_size1[0] - voxel_size2[0]) <= tol and abs(voxel_size1[0] - voxel_size3[0]) <= tol):
+        raise ValueError(f"Inconsistent voxel sizes: {voxel_size1}, {voxel_size2}, {voxel_size3}")
+    if not (abs(voxel_size1[2] - voxel_size2[2]) <= tol and abs(voxel_size1[2] - voxel_size3[2]) <= tol):
+        raise ValueError(f"Inconsistent voxel sizes: {voxel_size1}, {voxel_size2}, {voxel_size3}")
+
+    
+
+    
+    img1 = normalize_by_second_mode(img1, mask1, verbose=False)
+    img2 = normalize_by_second_mode(img2, mask2, verbose=False)
+    img3 = normalize_by_second_mode(img3, mask3, verbose=False)
+
+    img_nii1 = nib.Nifti1Image(img1, affine=img1_nii.affine)
+    nib.save(img_nii1, os.path.join(root_dir, f'{nii_files[sag_indexes][-4]}__norm.nii.gz'))
+
+
+ 
+
+
+
+
 def standerdize_stack(root_dir, suffix="auto2", output_dir=None, tol=1e-3):
     
     nii_files = []

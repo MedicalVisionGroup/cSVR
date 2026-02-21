@@ -100,13 +100,20 @@ def run_svr_inference(model, model_mlp, args=None, init_stacks_input=None, downs
 
 
          #   stack = model((downsampled_input,init_stacks))
+            print("Running MLP...")
 
+            print(downsampled_input.shape,init_stacks.shape )
+            for i in range (3):
+                _ = model_mlp((torch.zeros_like(downsampled_input,device=init_stacks.device), init_stacks))
+                
+            torch.cuda.synchronize()
             start = time.time()
             stack_mlp = model_mlp((downsampled_input,init_stacks))
 
-
+            torch.cuda.synchronize()
             end = time.time()
-            print(f"MLP Inference time opt: {end - start:.6f} seconds")
+            time_mlp = end - start
+            print(f"MLP Inference time opt: {time_mlp:.6f} seconds")
 
 
             stack1, stack2 ,stack3 = divide_into_stacks(init_stacks, downsampled_input)
@@ -142,15 +149,19 @@ def run_svr_inference(model, model_mlp, args=None, init_stacks_input=None, downs
             downsampled_input2 = torch.cat([stack1, stack2, stack3], dim=2)
 
 
-
-
+            # warmp up 
+            for i in range (3):
+                _ = model((torch.zeros_like(downsampled_input2),init_stacks))
           # #  pdb.set_trace()
-
+            torch.cuda.synchronize()
+            start_model = time.time()
             stack = model((downsampled_input2,init_stacks))
         #    pdb.set_trace() #models.losses.classification_onehot_loss(stack, torch.tensor([[0,1,0]]).cuda())
-            end = time.time()
-            print(f"Inference time opt {end - start:.6f} seconds")
-
+            torch.cuda.synchronize()
+            end_model = time.time()
+            time_unet = end_model - start_model
+            print(f"Inference time opt {time_unet:.6f} seconds")
+            print("POSE ESTIMATION:{:.3f}".format(time_unet   + time_mlp))
 
             ALL_STACKS =  init_stacks[1]
             ALL_STACKS_no_ot =  init_stacks[0]

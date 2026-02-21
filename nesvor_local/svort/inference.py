@@ -12,7 +12,6 @@ from ..transform import RigidTransform
 from ..utils import get_PSF, ncc_loss, resample
 from ..image import Stack, Slice, Volume
 from .. import CHECKPOINT_DIR, SVORT_URL_DICT
-import pdb
 
 
 def compute_score(ncc: torch.Tensor, ncc_weight: torch.Tensor) -> float:
@@ -73,7 +72,6 @@ def run_model(
                 "stacks": torch.cat([stacks[idx].slices for idx in idxes], dim=0),
                 "positions": positions,
             }
- 
             t_out, v_out, _ = model(data)
             t_out = t_out[-1]
 
@@ -104,7 +102,6 @@ def run_model(
         stacks_out.append(stack_out)
 
     volume = Volume(v_out[-1][0, 0], None, None, res_r)
-    
 
     return stacks_out, volume
 
@@ -116,11 +113,9 @@ def run_model_all_stack(
     psf: torch.Tensor,
 ) -> Tuple[List[Stack], Volume]:
     # run models
-    
     res_r = volume.resolution_x
     res_s = stacks[0].resolution_x
     device = stacks[0].device
-    
 
     positions = torch.cat(
         [
@@ -150,7 +145,6 @@ def run_model_all_stack(
             "stacks": torch.cat([s.slices for s in stacks], dim=0),
             "positions": positions,
         }
-       # pdb.set_trace()
         t_out, v_out, _ = model(data)
         transforms_out = [t_out[-1][positions[:, -1] == i] for i in range(len(stacks))]
 
@@ -185,7 +179,6 @@ def parse_data(
     dataset_out = []
 
     res_s = 1.0
-  #  res_r = 1
     res_r = 0.8
 
     for data in dataset:
@@ -241,7 +234,6 @@ def parse_data(
         crop_idx.append(idx)
         slices = slices[idx]
         # normalize
-      #  print("normalizing slices!!")
         stacks.append(slices / torch.quantile(slices[slices > 0], 0.99))
         stacks_ori.append(slices_ori)
         # transformation
@@ -299,9 +291,7 @@ def parse_data(
         stacks_resampled_reset[j].transformation = transforms_full[j]
 
     volume = Volume.zeros((200, 200, 200), res_r, device=dataset_out[0].device)
-   
-   # print("res r and res s")
-   # print(res_s / res_r, res_s / res_r, s_thick / res_r)
+
     psf = get_PSF(
         res_ratio=(res_s / res_r, res_s / res_r, s_thick / res_r),
         device=volume.device,
@@ -408,7 +398,6 @@ def simulated_ncc(
     stacks: List[Stack],
     volume: Volume,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-  #  print("IN SIMULATED NCC")
     ncc = []
     ncc_weight = []
     for j in range(len(stacks)):
@@ -428,7 +417,6 @@ def simulated_ncc(
         )
     ncc_all = torch.cat(ncc)
     ncc_weight_all = torch.cat(ncc_weight).view(ncc_all.shape)
-   # pdb.set_trace()
     return ncc_all, ncc_weight_all
 
 
@@ -441,29 +429,34 @@ def run_svort(
     force_scanner: bool,
 ) -> List[Slice]:
     if svort or vvr:
-        
         (dataset, stacks_in, ss_ori, stacks_full, crop_idx, volume, psf) = parse_data(
             dataset, svort
         )
 
     if svort:
         # run SVoRT model
+        
         time_start = time.time()
+        
         if isinstance(model, SVoRT):
             stacks_out, volume = run_model(stacks_in, volume, model, psf)
         elif isinstance(model, SVoRTv2):
-       #     print("here before model!!")
-          #  pdb.set_trace()
+            # WARM UP
+           # _, _ = run_model_all_stack(stacks_in, volume, model, psf)
+          # _, _ = run_model_all_stack(stacks_in, volume, model, psf)
+           # _, _ = run_model_all_stack(stacks_in, volume, model, psf)
+            torch.cuda.synchronize()
+            time_start_svort = time.time()
             stacks_out, volume = run_model_all_stack(stacks_in, volume, model, psf)
-          #  pdb.set_trace()
-            
         else:
             raise TypeError("unkown SVoRT model!")
+        torch.cuda.synchronize()
         logging.debug("time for running SVoRT: %f s" % (time.time() - time_start))
+        print("POSE ESTIMATION:{:.3f}".format(time.time() - time_start_svort))
+        print("changed!")
         # correct the prediction of SVoRT
         time_start = time.time()
         stacks_out, _ = correct_svort(stacks_out, stacks_in, volume)
-        
         logging.debug(
             "time for stack transformation correction: %f s"
             % (time.time() - time_start)
@@ -494,7 +487,6 @@ def run_svort(
         # stack-to-stack registration
         time_start = time.time()
         __ss = stack_registration([ss_stack_full, ss_ori] if svort else [ss_ori], svort)
-       # __ss = ss_stack_full
         logging.debug("time for stack registration: %f s" % (time.time() - time_start))
         # estimate NCC score for stack-to-stack registration
         if svort:
@@ -537,12 +529,9 @@ def run_svort(
 
         for j in range(len(dataset)):
             dataset[j].transformation = transforms_out[j]
-
+    torch.cuda.synchronize()
+    print("TIME ALL REGISTRATION:{:.3f}".format(time.time() - time_start_svort))
     slices = []
-    # for stack in dataset:
-    #     idx_nonempty = stack.mask.flatten(1).any(1)
-    #     stack.slices /= torch.quantile(stack.slices[stack.mask], 0.99)  # normalize
-    #     slices.extend(stack[idx_nonempty])
     save_all_slices = False # i added this
     if(save_all_slices):
         for stack in dataset:
@@ -574,7 +563,8 @@ def svort_predict(
             url=svort_url,
             model_dir=CHECKPOINT_DIR,
             map_location=device,
-            file_name="SVoRT_%s.pt" % svort_version,
+          #  file_name="SVoRT_%s.pt" % svort_version,
+            file_name="checkpoint.pt",
         )
         if svort_version == "v1" or "v1." in svort_version:
             model = SVoRT(n_iter=3)

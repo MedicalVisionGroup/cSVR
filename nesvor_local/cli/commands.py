@@ -15,7 +15,6 @@ from ..utils import makedirs, log_args, log_result
 from ..preprocessing import n4_bias_field_correction, assess, brain_segmentation
 from ..segmentation import twai
 from ..svr import slice_to_volume_reconstruction
-import pdb
 
 "base of commands"
 
@@ -131,7 +130,6 @@ class Reconstruct(Command):
     def preprocess(self) -> Dict[str, Any]:
         self.new_timer("Data loading")
         input_dict, self.args = inputs(self.args)
-        
         if "input_stacks" in input_dict and input_dict["input_stacks"]:
             if self.args.segmentation:
                 self.new_timer("Segmentation")
@@ -159,14 +157,14 @@ class Reconstruct(Command):
         return input_dict
 
     def exec(self) -> None:
-      #  print("IN EXEC INR")
         input_dict = self.preprocess()
+        torch.cuda.synchronize()
         self.new_timer("Reconsturction")
-      #  pdb.set_trace()
+        time_recon = time.time()
         model, output_slices, mask = train(input_dict["input_slices"], self.args)
-      #  pdb.set_trace()
+        torch.cuda.synchronize()
+        print("RECON TIME:{:.3f}".format(time.time() - time_recon))
         self.new_timer("Results saving")
-        
         output_volume, simulated_slices = _sample_inr(
             self.args,
             model,
@@ -339,20 +337,14 @@ class SVR(Reconstruct):
 
     def exec(self) -> None:
         input_dict = self.preprocess()
-        self.new_timer("Reconsturction")
-        
-        # all_imgs = torch.cat([s.image.flatten() for s in input_dict["input_slices"]])
-        # nonzero_vals = all_imgs[all_imgs != 0]
-        # mean_nonzero = nonzero_vals.mean()
-
-        # self.args.output_intensity_mean = mean_nonzero
-        
+        torch.cuda.synchronize()
+        time_recon = time.time()
         output_volume, output_slices, simulated_slices = slice_to_volume_reconstruction(
             input_dict["input_slices"], **vars(self.args)
         )
+        torch.cuda.synchronize()
+        print("RECON TIME:{:.3f}".format(time.time() - time_recon))
         self.new_timer("Results saving")
-
-
         outputs(
             {
                 "output_volume": output_volume,
@@ -382,8 +374,6 @@ def _segment_stack(args: argparse.Namespace, data: List[Stack]) -> List[Stack]:
 
 
 def _register(args: argparse.Namespace, data: List[Stack]) -> List[Slice]:
-   # print("REGISTRATION")
-   # print(args.registration)
     if args.registration == "svort":
         svort = True
         vvr = True
@@ -512,7 +502,6 @@ def _sample_inr(
         else None
     )
     return output_volume, simulated_slices
-
 
 
 """warnings and checks"""

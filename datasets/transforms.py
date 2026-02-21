@@ -1,51 +1,19 @@
 import sys
 import math
 import torch
-import torch.nn as nn
 import random
 import numpy as np
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as F
-import interpol
-import sys
-
-
-
-
-from PIL import Image
-import pdb
-import inspect
-from cornucopia.utils.warps import affine_flow
-from scipy import ndimage
-from cornucopia.random import Sampler, Normal, Uniform
-#from cornucopia.random import Sampler, Uniform, RandInt, Fixed, make_range, RandKFrom, UniformWithFlip
-#in order to save image
-
-from nilearn.datasets import load_mni152_template
-from nilearn.plotting import plot_img
-import nibabel as nib
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import torch.nn.functional as FF
-from pathlib import Path
-import importlib.util
+
+from cornucopia.utils.warps import affine_flow
+from cornucopia.random import Normal
 import cornucopia as cc
-# # Path to the cornucopia package in the other environment
-# pkg_path = Path("/data/vision/polina/users/mfirenze/miniconda3/envs/4DCNN_env_freesurfer/lib/python3.10/site-packages/cornucopia")
-# init_file = pkg_path / "__init__.py"
-
-# # Load cornucopia as a module
-# spec = importlib.util.spec_from_file_location("cornucopia", init_file)
-# cc = importlib.util.module_from_spec(spec)
-# spec.loader.exec_module(cc)
-
-# print("cornucopia path:")
-# print(cc.__file__)
 
 
-project_root = "/data/vision/polina/users/mfirenze/cSVR/models"
-# Add it to sys.path if not already there:
+
+project_root = "./models"
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
@@ -80,7 +48,7 @@ class Pad2D():
     def forward(self, features):
         for d in range(2):
             features = F.pad(features[None], pad=self.padding_dims[d], mode=self.padding_mode[d])[0]
-        
+
         return features
 
 def negate_list(lst):
@@ -96,38 +64,95 @@ def bucket_angles(t):
     buckets[(t >= 135)  | (t < -135)] = 3
     return buckets
 
+
+class RandomSignalVoidTransform:
+    """Simulates signal voids on 2D slices via random oriented elliptical dropouts.
+
+    Args:
+        prob: per-slice probability of applying a void.
+    """
+    def __init__(self, prob=0.3):
+        self.prob = prob
+
+    def __call__(self, x):
+        # x: [C, D, H, W] — apply independently to each 2D slice along D
+        slices = x.permute(1, 0, 2, 3).clone()  # [D, C, H, W]
+
+        idx = torch.rand(slices.shape[0], device=slices.device) < self.prob
+        n = idx.sum()
+        if n > 0:
+            h, w = slices.shape[-2:]
+            gy = torch.linspace(-(h - 1) / 2, (h - 1) / 2, h, device=slices.device)
+            gx = torch.linspace(-(w - 1) / 2, (w - 1) / 2, w, device=slices.device)
+            yc = (torch.rand(n, device=slices.device) - 0.5) * (h - 1)
+            xc = (torch.rand(n, device=slices.device) - 0.5) * (w - 1)
+
+            gy = gy.view(1, -1, 1) - yc.view(-1, 1, 1)
+            gx = gx.view(1, 1, -1) - xc.view(-1, 1, 1)
+
+            theta = 2 * math.pi * torch.rand((n, 1, 1), device=slices.device)
+            c, s = torch.cos(theta), torch.sin(theta)
+            gx, gy = c * gx - s * gy, s * gx + c * gy
+
+            a = 5 + torch.rand_like(theta) * 10
+            A = torch.rand_like(theta) * 0.5 + 0.5
+            sx = torch.rand_like(theta) * 15 + 1
+            sy = a**2 / sx
+
+            sx = -0.5 / sx**2
+            sy = -0.5 / sy**2
+
+            mask = 1 - A * torch.exp(sx * gx**2 + sy * gy**2)
+            slices[idx, 0] = slices[idx, 0] * mask
+
+        return slices.permute(1, 0, 2, 3)  # back to [C, D, H, W]
+
+
+class RandomRicianNoiseTransform:
+    """Simulates Rician noise on 2D slices, matching MRI magnitude image physics.
+
+    Noise is only added within-signal (above threshold) to leave zero background
+    untouched. Sigma is sampled uniformly from [sigma[0], sigma[1]] each call.
+
+    Args:
+        sigma: (min, max) noise standard deviation range.
+        threshold: voxel intensity threshold defining the signal mask.
+        prob: per-slice probability of applying noise.
+    """
+    def __init__(self, sigma=(0.01, 0.1), threshold=0.05, prob=0.5):
+        self.sigma = sigma
+        self.threshold = threshold
+        self.prob = prob
+
+    def __call__(self, x):
+        # x: [C, D, H, W] — apply independently to each 2D slice along D
+        slices = x.permute(1, 0, 2, 3).clone()  # [D, C, H, W]
+
+        idx = torch.rand(slices.shape[0], device=slices.device) < self.prob
+        if idx.sum() == 0:
+            return slices.permute(1, 0, 2, 3)
+
+        sigma = self.sigma[0] + torch.rand(1).item() * (self.sigma[1] - self.sigma[0])
+
+        for i in idx.nonzero(as_tuple=True)[0]:
+            sl = slices[i, 0]
+            mask = sl > self.threshold
+            if mask.any():
+                masked = sl[mask]
+                noise1 = torch.randn_like(masked) * sigma
+                noise2 = torch.randn_like(masked) * sigma
+                sl[mask] = torch.sqrt((masked + noise1) ** 2 + noise2 ** 2)
+            slices[i, 0] = sl
+
+        return slices.permute(1, 0, 2, 3)  # back to [C, D, H, W]
+
+
 class GenerateMotionTrajectory:
-    #zooms=(-0.35,0.02) d
-  #  def __init__(self, spacing=1, subsample=1, translations=0.1, rotations= 20, bulk_translations=0, bulk_rotations=0, zooms=0, slice=1, nodes=(1,16), shots=2, augment=False, noise=False, X=3, flow_final=False, crop=False, normalize_img = True):
-  #  def __init__(self, spacing=1, subsample=1, translations=0.1, rotations=20, bulk_translations=0, bulk_rotations=0, zooms=0, slice=1, nodes=(8,16), shots=2, augment=False, noise=False, X=3, flow_final=False, crop=False,  normalize_img = True):
-  #  def __init__(self, spacing=1, subsample=1, translations=0.03, rotations= 20, bulk_translations=0, bulk_rotations=70, zooms=(-0.35,-0.2), slice=1, nodes=(1,16), shots=2, augment=False, noise=False, X=3, flow_final=False, crop=False, normalize_img = True):
-   # def __init__(self, spacing=1, subsample=1, translations=0, rotations= 0, bulk_translations=0, bulk_rotations=0, zooms=0, slice=1, nodes=(1,16), shots=2, augment=False, noise=False, X=3, flow_final=False, crop=False, normalize_img = True):
-   # def __init__(self, spacing=1, subsample=1, translations=0.03, rotations= 20, bulk_translations=0, bulk_rotations=70, zooms=0, slice=1, nodes=(1,16), shots=2, augment=False, noise=False, X=3, flow_final=False, crop=False, normalize_img = True):
-  #  def __init__(self, spacing=1, subsample=1, translations=0.03, rotations= 20, bulk_translations=0, bulk_rotations=70, zooms=(-0.35,-0.2), slice=1, nodes=(1,16), shots=2, augment=False, noise=False, X=3, flow_final=False, crop=False, normalize_img = True):
-  #  def __init__(self, spacing=1, subsample=1, translations=0.03, rotations= 20, bulk_translations=0, bulk_rotations=70, zooms=(-0.141,-0.140), slice=1, nodes=(2,4), shots=2, augment=False, noise=False, X=3, flow_final=False, crop=False, normalize_img = True):
-    # last train
-
-    #last train mod
- #   def __init__(self, spacing=1, subsample=1, translations=0.03, rotations= 40, bulk_translations=0,  bulk_rotations_plane=0, bulk_rotations_tr_plane=0, zooms=(-0.35,-0.2), slice=1, nodes=(1,100), shots=2, augment=False, noise=0, X=3, flow_final=False, crop=False, normalize_img = True):
-  #  def __init__(self, spacing=1, subsample=1, translations=0.03, rotations= 40, bulk_translations=0,  bulk_rotations_plane=0, bulk_rotations_tr_plane=0, zooms=(-0.45,0), slice=1, nodes=(1,100), shots=2, augment=False, noise=0, X=3, flow_final=False, crop=False, normalize_img = True):
-
-   # def __init__(self, spacing=1, subsample=1, translations=0.03, rotations= 40, bulk_translations=0, bulk_rotations=70, zooms=(-0.35,-0.2), slice=1, nodes=(1,100), shots=2, augment=False, noise=True, X=3, flow_final=False, crop=False, normalize_img = True):
- #   def __init__(self, spacing=1, subsample=1, translations=0.03, rotations= 40, bulk_translations=0, bulk_rotations=70, zooms=(-0.45,0), slice=1, nodes=(1,100), shots=2, augment=False, noise=True, X=3, flow_final=False, crop=False, normalize_img = True):
-
-   # def __init__(self, spacing=1, subsample=1, translations=0.03, rotations= 10, bulk_translations=0, bulk_rotations=0, zooms=(-0.35,-0.2), slice=1, nodes=(1,16), shots=2, augment=False, noise=True, X=3, flow_final=False, crop=False, normalize_img = True):
-
-    # eval
-  #  def __init__(self, spacing=1, subsample=1, translations=0.03, rotations= 30, bulk_translations=0, bulk_rotations_plane=180, bulk_rotations_tr_plane=10, zooms=0, slice=1, nodes=(1,100), shots=2, augment=False, noise=0, X=3, flow_final=False, crop=False, normalize_img = True):
-  #  def __init__(self, spacing=1, subsample=1, translations=0.03, rotations= 30, bulk_translations=0, bulk_rotations_plane=70, bulk_rotations_tr_plane=0, zooms=0, slice=1, nodes=(1,100), shots=2, augment=False, noise=0, X=3, flow_final=False, crop=False, normalize_img = True):
-
-  # eval hard
-  #  def __init__(self, spacing=1, subsample=1, translations=0.05, rotations= 30, bulk_translations=0, bulk_rotations=70, zooms=0, slice=1, nodes=(1,16), shots=2, augment=False, noise=False, X=3, flow_final=False, crop=False, normalize_img = True):
-    def __init__(self, spacing=1, subsample=1, translations=0.03, rotations= 40, bulk_translations=0,  bulk_rotations_plane=0, bulk_rotations_tr_plane=0, zooms=0, slice=1, nodes=(1,100), shots=2, augment=False, noise=0, X=3, flow_final=False, crop=False, normalize_img = True, mlp_training=False, verbose=False, **kwargs):
-
+    def __init__(self, spacing=1, subsample=1, translations=0.03, rotations=40, bulk_translations=0, bulk_rotations_plane=0, bulk_rotations_tr_plane=0, zooms=(-0.35,-0.2), slice=1, nodes=(1,5), shots=2, augment=False, noise=0, X=3, flow_final=False, crop=False, normalize_img=True, mlp_training=False, verbose=True, **kwargs):
 
         # DEFINE MOTION PARAMETERS
         self.verbose = verbose
-        if(self. verbose):
+        if self.verbose:
             print("MOTION PARAMS:")
             print(f"spacing: {spacing}")
             print(f"subsampling: {subsample}")
@@ -144,19 +169,14 @@ class GenerateMotionTrajectory:
             print(f"augment: {augment}")
             print(f"mlp training: {mlp_training}")
 
-
         self.subsample = subsample
-        self.spacing = spacing 
-        
+        self.spacing = spacing
+
         self.slice = slice if isinstance(slice, (tuple, list)) else [slice]
-     #   self.flip = cc.fov.RandomFlipTransform(axes=[-3]) #+ cc.fov.PatchTransform(192) # Turns flips off
         self.flip_ax1 = cc.Rot180Transform(axis=1)
         self.flip_ax2 = cc.Rot180Transform(axis=2)
         self.mlp_training = mlp_training
-       # self.flip = cc.Rot180Transform(axis=2)
-     #   self.flip = cc.Rot180Transform(axis=0)
-        if(self.mlp_training):
-
+        if self.mlp_training:
             self.stack_order_pred = True
             self.no_rotation = False
             self.rot_180_axis = True
@@ -167,97 +187,61 @@ class GenerateMotionTrajectory:
             self.rot_180_axis = False
             self.predict_vec = False
         self.zoom = cc.RandomAffineTransform(translations=0, rotations=0, shears=0, zooms=zooms, iso=True)
-        self.augment = augment #add_noise
+        self.augment = augment
         self.noise = noise
         self.crop = crop
         self.flow_final = flow_final
-        self.X = X # nu,ber of stacks
+        self.X = X
         self.normalize_img = normalize_img
         self.bias_field = False
         self.gamma_field = False
         self.slice_bias_apply = False
+        self.signal_void_apply = False
+        self.rician_noise_apply = False
         self.smooth = False
         self.slice_drop_out = 0.2
-        
-        
-        if(self.augment==True): # do not do this for validation set
 
-            self.bias_field = True
-            self.gamma_field = True
-            self.slice_bias_apply = True
+        if self.augment:
+            print("Adding augmentations!!")
+            self.bias_field = False
+            self.gamma_field = False
+            self.slice_bias_apply = False
+            self.signal_void_apply = True
+            self.rician_noise_apply = True
             self.smooth = False
-
         else:
+            print("No augmentations.")
             self.slice_drop_out = 0
 
+        # SPECIFY BULK ROTATIONS
+        bulk1 = [bulk_rotations_tr_plane, bulk_rotations_tr_plane, bulk_rotations_plane]
+        bulk2 = [bulk_rotations_tr_plane, bulk_rotations_plane, bulk_rotations_tr_plane]
+        bulk3 = [bulk_rotations_plane, bulk_rotations_tr_plane, bulk_rotations_tr_plane]
 
-        # SPECIFY BULK ROTATIONS 
-        random_motion = True # only True for debugging purposes
-        one_plane_bulk = False # only have in-plane bulk rotations
-        if(random_motion):
-            if(one_plane_bulk):
-                bulk1 = [0,0,bulk_rotations_plane]
-                bulk2 = [0,bulk_rotations_plane,0]
-                bulk3 = [  bulk_rotations_plane,0,0]
+        bulk_rotations_list = []
+        for i in slice:
+            if i == 0:
+                bulk_rotations_list.append(bulk1)
+            elif i == 1:
+                bulk_rotations_list.append(bulk2)
+            elif i == 2:
+                bulk_rotations_list.append(bulk3)
 
-            else:
-                bulk1 = [bulk_rotations_tr_plane,bulk_rotations_tr_plane,bulk_rotations_plane]
-                bulk2 = [bulk_rotations_tr_plane,bulk_rotations_plane,bulk_rotations_tr_plane]
-                bulk3 = [bulk_rotations_plane,bulk_rotations_tr_plane,bulk_rotations_tr_plane]
-    
-            bulk_rotations_list = []
-            for i in slice:
-                if(i==0):
-                    bulk_rotations_list.append(bulk1)
-                elif(i==1):
-                    bulk_rotations_list.append(bulk2)
-                elif(i==2):
-                    bulk_rotations_list.append(bulk3)
-
-
-               # bulk_rotations_list  = [[bulk_rotations,bulk_rotations,bulk_rotations],[bulk_rotations,bulk_rotations,bulk_rotations],[bulk_rotations,bulk_rotations,bulk_rotations]]
-           # pdb.set_trace()
-            
-            # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=translations, rotations=rotations,
-            #                                           bulk_translations=bulk_translations, bulk_rotations=bulk_rotations_list[s], shears=0, zooms=0) for s in self.slice]
-        
-            # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=translations, rotations=rotations,
-            #                                             bulk_translations=bulk_translations, bulk_rotations=UniformWithFlip(bulk_rotations_list[s],prob=0.5) , shears=0, zooms=0) for s in self.slice]
-            # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0,translations/2), rotations=Normal(0,rotations/2),
-            #                                             bulk_translations=bulk_translations, bulk_rotations=UniformWithFlip(bulk_rotations_list[s],prob=0.5) , shears=0, zooms=0) for s in self.slice]
-            # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0,translations), rotations=Normal(0,rotations/2),
-            #                                               bulk_translations=bulk_translations, bulk_rotations=bulk_rotations_list[s] , shears=0, zooms=0) for s in self.slice]
-            # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0,translations), rotations=Normal(0,rotations/2),
-            #                                               bulk_translations=bulk_translations, bulk_rotations=bulk_rotations_list[s] , shears=0, zooms=0) for s in self.slice]
-
-
-            self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0,translations), rotations=Normal(0,rotations/2),
-                                                         bulk_translations=bulk_translations, bulk_rotations=(negate_list(bulk_rotations_list[s]), bulk_rotations_list[s]) , shears=0, zooms=0) for s in self.slice]
-
-            # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0,translations), rotations=Normal(0,rotations/2),
-            #                                              bulk_translations=bulk_translations, bulk_rotations=bulk_rotations_list[s] , shears=0, zooms=0) for s in self.slice]
-            # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0,translations), rotations=Normal(0,rotations/2),
-            #                                               bulk_translations=bulk_translations, bulk_rotations=Normal(0,bulk_rotations_list[s]) , shears=0, zooms=0) for s in self.slice]
-
-            # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0,translations), rotations=rotations,
-            #                                                bulk_translations=bulk_translations, bulk_rotations=(negate_list(bulk_rotations_list[s]), bulk_rotations_list[s]), shears=0, zooms=0) for s in self.slice]
-        else: # only for debugging purposes
-            print("NOT RANDOM MOTION")
-            trans_new = torch.tensor([[0, 0, 0] for i in range(64)])
-            trans_new = trans_new.view(64,3).tolist()
-            rots_new = torch.tensor([[0, 45, 0] for i in range(64)])
-            rots_new = rots_new.view(64,3).tolist()
-            self.base = [cc.SlicewiseAffineTransform(spacing=spacing, subsample=subsample, slice=s,rotations=rots_new , shears=torch.tensor([0,0,0]),  #30*torch.ones((3,128)
-                                                            translations= trans_new, zooms = torch.tensor([0,0,0]), unit='vox')  for s in self.slice]# CHANGED ZOOMS #torch.tensor([0,0.5,0.0])
+        # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0, translations), rotations=Normal(0, rotations/2),
+        #                                              bulk_translations=bulk_translations, bulk_rotations=(negate_list(bulk_rotations_list[s]), bulk_rotations_list[s]), shears=0, zooms=0) for s in self.slice]
+        # sample trajectories!
+        self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, trajectory_mode=True,trajectory_path='/data/vision/polina/users/mfirenze/SVoRT/dataset/traj.npy',
+                                                     bulk_rotations=(negate_list(bulk_rotations_list[s]), bulk_rotations_list[s]), shears=0, zooms=0,  trajectory_time_step=(1,2),trajectory_relative=True) for s in self.slice]
 
         # SPECIFY AUGMENTATIONS
         prob_aug = 0.3
-        self.mult = cc.MaybeTransform(cc.RandomGaussianNoiseTransform(sigma=0.1), prob_aug) 
-     #   self.mult = cc.MaybeTransform(cc.RandomGaussianNoiseTransform(sigma=noise), 1)  # always do noise during validation
-        self.bias = cc.MaybeTransform(cc.RandomMulFieldTransform(vmax=1), prob_aug) 
-        self.gamma = cc.MaybeTransform(cc.RandomGammaTransform(gamma=(0.5, 2)), prob_aug) 
+        self.mult = cc.MaybeTransform(cc.RandomGaussianNoiseTransform(sigma=0.1), prob_aug)
+        self.bias = cc.MaybeTransform(cc.RandomMulFieldTransform(vmax=1), prob_aug)
+        self.gamma = cc.MaybeTransform(cc.RandomGammaTransform(gamma=(0.5, 2)), prob_aug)
         self.slice_bias = cc.MaybeTransform(cc.RandomSlicewiseMulFieldTransform(slice=0, thickness=2, vmax=1), prob_aug)
         self.smoother = cc.MaybeTransform(cc.RandomSmoothTransform(fwhm=6), prob_aug)
+        self.signal_void = RandomSignalVoidTransform(prob=0.5)
+        self.rician_noise = RandomRicianNoiseTransform(sigma=(0.01, 0.1), threshold=0.05, prob=0.5)
 
     # HELPER FUNCTIONS
     def stack_in_single_plane(self, og): # turn slices to correct plane
@@ -265,150 +249,114 @@ class GenerateMotionTrajectory:
         ss = og.shape[1]//len_s
         new_vol = torch.zeros_like(og)
         for i, stack_num in enumerate(self.slice):
-            
-            if(stack_num == 0):
-                print("stack {}, i {}, true stack 0".format(stack_num, i))
+            if stack_num == 0:
                 stack_n = og[:,ss*i:ss*(i+1),:,:]
-    
-            if(stack_num == 1):
-                print("stack {}, i {}, true stack 1".format(stack_num, i))
+            if stack_num == 1:
                 stack = og[:,ss*i:ss*(i+1),:,:]
                 stack_n = torch.rot90(stack, k=1, dims=(1, 2))
-
-            if(stack_num == 2): 
-                print("stack {}, i {}, true stack 2".format(stack_num, i))
+            if stack_num == 2:
                 stack = og[:,ss*i:ss*(i+1),:,:]
-                stack_n = torch.rot90(stack, k=-1, dims=(1, 3)) # for slice1
+                stack_n = torch.rot90(stack, k=-1, dims=(1, 3))
                 stack_n = torch.rot90(stack_n, k=1, dims=(2, 3))
             new_vol[:,ss*i:ss*(i+1),:,:] = stack_n
         return new_vol
 
-      
-    
+
+
     def generate_initial_flow(self, vol_n): # add correct offset to account for planar slices
-      
+
         len_s = len(self.slice)
-        ss = vol_n.shape[2]//len_s  
+        ss = vol_n.shape[2]//len_s
         flow_new = torch.zeros((3,vol_n.shape[2],vol_n.shape[3],vol_n.shape[4])).to(vol_n.device)
-        shape  = [vol_n.shape[2]//len_s,vol_n.shape[3],vol_n.shape[4]]
+        shape = [vol_n.shape[2]//len_s, vol_n.shape[3], vol_n.shape[4]]
 
         for i in range(len_s):
             sl = self.slice[i]
 
-            if (sl == 0):
+            if sl == 0:
                 affine = torch.eye(4)
 
-        
-            if (sl == 2): 
+            if sl == 2:
                 affine = torch.eye(4)
                 affine[0,0] = 0
                 affine[0,2] = -1
-                affine[2,0] = 1 #1
-                affine[2,2]= 0 #-1
-        
+                affine[2,0] = 1
+                affine[2,2] = 0
+
                 rot_90 = torch.eye(4)
                 rot_90[1,2] = 1
                 rot_90[2,1] = -1
                 rot_90[2,2] = 0
                 rot_90[1,1] = 0
-            
+
                 affine = affine @ rot_90
 
-
-            if (sl == 1):
+            if sl == 1:
                 affine = torch.eye(4)
+                affine[0,0] = 0
+                affine[1,1] = 0
+                affine[0,1] = 1
+                affine[1,0] = -1
 
-                affine[0,0] =   0
-                affine[1,1]=    0
-                affine[0,1] =   1 #1
-                affine[1,0] =  -1 #-1
-                print("slice 2 rot")
-                print(affine)
-    
             affine[0,3] = (shape[0]-1)/2
             affine[1,3] = (shape[1]-1)/2
-            affine[2,3] =(shape[2]-1)/2
-        
-            t = affine[0:3,3]    
+            affine[2,3] = (shape[2]-1)/2
+
+            t = affine[0:3,3]
             aff_m = affine[:3,:3]
             d = aff_m @ t
             affine[0:3,3] = t-d
-            ans = affine_flow(affine, shape).movedim(-1, 0).to(vol_n.device) #.flip(0)
+            ans = affine_flow(affine, shape).movedim(-1, 0).to(vol_n.device)
             flow_new[:,ss*i:ss*(i+1),:,:] = ans
 
         return flow_new
 
     def __call__(self, img1, seg1):
-        
-        if img1.ndim == 5 :
+
+        if img1.ndim == 5:
             img1, seg1 = zip(*[self(img1[i], seg1[i]) for i in range(img1.shape[0])])
-            if(self.crop):
+            if self.crop:
                 return (img1[0][0][None], img1[0][1]), torch.stack(seg1, 0)
             else:
                 return torch.stack(img1, 0), torch.stack(seg1, 0)
 
-        numstacks = len(self.slice) #torch.randint(1, len(self.slice) + 1, [1]).item()img2
-        # normalize image - remove if want to avoid shifts in brightness
+        # normalize image
         if self.normalize_img:
             print("Clamping values")
             img1 = (img1.clamp(min=0.1) - 0.1) * (1 / 0.9)
-
         else:
             print("No clamping")
 
-        # MASK AUGMENTATIONS - USE IMPERFECT MASK AS AUGEMENTATION
-        correct_mask = True
-        rand_slice = False
-        rand_mask = False
-        if not correct_mask:
-            seg1 = ((img1 > 0) | (seg1 > 0)).float()
-        else:
-            if(not rand_slice):
-                print("Use correct mask!")
-                seg1 = (seg1 > 0).float()
-                while seg1.ndim < 4:
-                    seg1 = seg1.unsqueeze(0)
-            else:
-    
-                choices = (torch.rand(1, seg1.shape[0], 1, 1, device=seg1.device) > 0.5)
-                img1 = torch.where(choices, img1, (seg1 > 0) * img1)
-                if(not rand_mask):
-                    seg1 = (seg1 > 0).float()
-                    while seg1.ndim < 4:
-                        seg1 = seg1.unsqueeze(0)
-                else:
-                    seg1 = ((img1 > 0) | (seg1 > 0)).float()
-
-        
+        # MASK: use correct binary mask
+        seg1 = (seg1 > 0).float()
+        while seg1.ndim < 4:
+            seg1 = seg1.unsqueeze(0)
 
         # APPLY AUGMENTATIONS
         img1 = self.smoother(img1) if self.smooth else img1
-        img1 = self.mult(img1) if self.noise > 0 else img1        
+        img1 = self.mult(img1) if self.noise > 0 else img1
         img1 = self.bias(img1) if self.bias_field else img1
         img1 = self.gamma(img1) if self.gamma_field else img1
 
-
         # REVERSE ORDER
-        if(self.stack_order_pred):
+        if self.stack_order_pred:
             rot180_stack = [random.randint(0, 1) for _ in range(3)]
         else:
-            rot180_stack = [0,0,0]
+            rot180_stack = [0, 0, 0]
 
         # APPLY ZOOM AUGMENTATION
         xform = self.zoom.make_final(img1)
         img1 = xform(img1)
         seg1 = xform(seg1)
 
-
         # SHUFFLE ORDER OF STACKS FOR MLP TRAINING
-        if(self.mlp_training):
+        if self.mlp_training:
             self.slice = random.sample(self.slice, k=len(self.slice))
-            print(f"Shuffled slices for MLP training: {self.slice}")        
+            print(f"Shuffled slices for MLP training: {self.slice}")
         xform = [self.base[sl].make_final(img1) for sl in self.slice]
 
-
-        #  GENERATE MOTION TRAJECTORIES
-        if(self.stack_order_pred and not self.rot_180_axis):
+        # GENERATE MOTION TRAJECTORIES
+        if self.stack_order_pred and not self.rot_180_axis:
             img0 = torch.cat([
                 self.flip(xform[i](img1)) if rot180_stack[i] == 1 else xform[i](img1)
                 for i in range(len(self.slice))
@@ -420,11 +368,9 @@ class GenerateMotionTrajectory:
             ], dim=1)
         elif self.stack_order_pred and self.rot_180_axis:
             imgs = []
-            segs = []  #flip_ax2
+            segs = []
 
             for i in range(len(self.slice)):
-                # apply transform once
-
                 if rot180_stack[i] == 1:
                     flip_fn = self.flip_ax1 if self.slice[i] == 2 else self.flip_ax2
                     img1_f = flip_fn(img1)
@@ -433,10 +379,8 @@ class GenerateMotionTrajectory:
                     img_i = xform[i](img1_f)
                     seg_i = xform[i](seg1_f).gt(0).float()
                 else:
-
                     img_i = xform[i](img1)
                     seg_i = xform[i](seg1).gt(0).float()
-
 
                 imgs.append(img_i)
                 segs.append(seg_i)
@@ -444,249 +388,178 @@ class GenerateMotionTrajectory:
             img0 = torch.cat(imgs, dim=1)
             seg0 = torch.cat(segs, dim=1)
 
-        else: # ORIGINAL WITH NO CHANGE IN STACK ORDER OR 180
+        else: # no change in stack order or 180
             img0 = torch.cat([xform[i](img1) for i in range(len(self.slice))], dim=1)
             seg0 = torch.cat([xform[i](seg1).gt(0).float() for i in range(len(self.slice))], 1)
 
         # EXTRACT FLOW FROM GENERATED MOTION TRAJECTORY
-        flow = torch.cat([xform[i].flow for i in range(len(self.slice))], 1) # 
-        
-        # EXTRACT BULK ROTATION VALUES FOR MLP PREDICTION
-        idx_slice = [2,1,0]
-        bulk_rot_plane = torch.tensor([xform[i].bulk_rotations[idx_slice[self.slice[i]]] for i in range(len(self.slice))]).to(img1.device)
-        rot_buckets = bucket_angles(bulk_rot_plane)
+        flow = torch.cat([xform[i].flow for i in range(len(self.slice))], 1)
 
-        # CONCATE MASK AND IMAGE TENSOR
+        # EXTRACT BULK ROTATION VALUES FOR MLP PREDICTION
+        # idx_slice = [2, 1, 0]
+        # bulk_rot_plane = torch.tensor([xform[i].bulk_rotations[idx_slice[self.slice[i]]] for i in range(len(self.slice))]).to(img1.device)
+        # rot_buckets = bucket_angles(bulk_rot_plane)
+
+        # CONCATENATE MASK AND IMAGE TENSOR
         img0, flow = torch.cat([img0, seg0]), torch.cat([flow, seg0])
 
-        # COMBINE ALL SLICES
-        all_slices = img0[0][:,:,:][None][None] 
-
         # TURN SLICES RIGHT SIDE UP
-        img0 = self.stack_in_single_plane(img0) # TEMPORARY
+        img0 = self.stack_in_single_plane(img0)
         flow = self.stack_in_single_plane(flow)
         img0[:1] = self.slice_bias(img0[:1]) if self.slice_bias_apply else img0[:1]
+        img0[:1] = self.signal_void(img0[:1]) if self.signal_void_apply else img0[:1]
+        img0[:1] = self.rician_noise(img0[:1]) if self.rician_noise_apply else img0[:1]
 
-        # GENERATE ORTHOGONAL FLOW
-        ONE_LAYER_ONLY = False
-        ot = False # to train make this false
+        # GENERATE ORTHOGONAL FLOW (zero residual)
+        flow_ot = self.generate_initial_flow(flow[None][:,1:4])
+        flow_ot = torch.zeros_like(flow_ot)
 
-        if(ONE_LAYER_ONLY):
-            ot = False
-        if(ot):
-            flow_ot = self.generate_initial_flow(flow[None][:,1:4])
-        else:
-            flow_ot = self.generate_initial_flow(flow[None][:,1:4])
-            flow_ot = torch.zeros_like(flow_ot)
-
-        # MAKE TOTAL FLOW, FLOW GENERATED FROM MOTION + RESIDUAL FROM THE STACK
+        # MAKE TOTAL FLOW: motion flow + orthogonal residual
         new_flow = torch.zeros_like(flow).to(flow.device)
-        new_flow[0:3] = (flow_ot+ flow[None][:,:3,:,:,:])
+        new_flow[0:3] = (flow_ot + flow[None][:,:3,:,:,:])
         new_flow[3] = flow[None][0,3,:,:,:] # keep mask in last dimension
         flow = new_flow
 
-    
-        if (self.crop==False):
+        if not self.crop:
             return img0, flow
-        else: # remove duplicates and black slices
 
-            if(self.slice==[0,1,2]):
-                sl_shape = img0.shape[2]
+        # CROP: remove duplicates and black slices
+        if self.slice == [0,1,2]:
+            sl_shape = img0.shape[2]
 
-                #slice_dim 
-                STACK_OG = og_slice_pos_pre(sl_shape, [1,1,1], 1, 0, [sl_shape,sl_shape,sl_shape], device=flow.device)
+            STACK_OG = og_slice_pos_pre(sl_shape, [1,1,1], 1, 0, [sl_shape,sl_shape,sl_shape], device=flow.device)
+            STACK1 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[0], [sl_shape,sl_shape,sl_shape], device=flow.device)
+            STACK2 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[1], [sl_shape,sl_shape,sl_shape], device=flow.device)
+            STACK3 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[2], [sl_shape,sl_shape,sl_shape], device=flow.device)
 
-                STACK1 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[0], [sl_shape,sl_shape,sl_shape], device=flow.device)
-                STACK2 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[1], [sl_shape,sl_shape,sl_shape], device=flow.device)
-                STACK3 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[2], [sl_shape,sl_shape,sl_shape], device=flow.device)
+            ALL_STACKS = torch.zeros((2, sl_shape*3, 4, 4), device=flow.device)
+            ALL_STACKS[0, 0:sl_shape] = STACK1
+            ALL_STACKS[0, sl_shape:sl_shape*2] = STACK2
+            ALL_STACKS[0, sl_shape*2:sl_shape*3] = STACK3
 
-                ALL_STACKS = torch.zeros((2, sl_shape*3,4,4), device=flow.device)
-                ALL_STACKS[0,0:sl_shape] =   STACK1
-                ALL_STACKS[0, sl_shape:sl_shape*2] = STACK2
-                ALL_STACKS[0, sl_shape*2:sl_shape*3] = STACK3
-                no_stack_info = False # do not give fact that slices are orthogonal up!
-
-                if(no_stack_info):
-                    print("No stack information")
-                    ALL_STACKS[0, sl_shape:sl_shape*2] = STACK1
-                    ALL_STACKS[0, sl_shape*2:sl_shape*3] = STACK1
-                
-                # save slice height
-                ALL_STACKS[1,   0:sl_shape] =   STACK1
-                ALL_STACKS[1, sl_shape:sl_shape*2] = STACK1
-                ALL_STACKS[1, sl_shape*2:sl_shape*3] = STACK1
-
-                actually_crop = True
-                remove_repeat = True
-
-
-            else:
-
-                len_s = len(self.slice)
-                sl_shape = img0.shape[1]//len_s
-
-                print("here :))))")
-            
-                #slice_dim 
-                STACK_OG = og_slice_pos_pre(sl_shape, [1,1,1], 1, 0, [sl_shape,sl_shape,sl_shape], device=flow.device)
-
-                STACK1 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[0], [sl_shape,sl_shape,sl_shape], device=flow.device)
-                STACK2 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[1], [sl_shape,sl_shape,sl_shape], device=flow.device)
-                STACK3 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[2], [sl_shape,sl_shape,sl_shape], device=flow.device)
-
-                ALL_STACKS = torch.zeros((2, img0.shape[1],4,4), device=flow.device)
-
-                for i in range(len_s):
-                    stack_num = self.slice[i]
-                    if(stack_num == 0):
-                        ALL_STACKS[0,sl_shape*i:sl_shape*(i+1)] =   STACK1
-                    if(stack_num == 1):
-                        ALL_STACKS[0,sl_shape*i:sl_shape*(i+1)] =   STACK2
-                    if(stack_num == 2):
-                        ALL_STACKS[0,sl_shape*i:sl_shape*(i+1)] =   STACK3
-
-            no_stack_info = False # do not give fact that slices are orthogonal up!
-
-            if(no_stack_info):
-                print("NO STACK INFORMATION!!!")
-                ALL_STACKS[0, 0:sl_shape] = STACK_OG
-                ALL_STACKS[0, sl_shape:sl_shape*2] = STACK_OG
-                ALL_STACKS[0, sl_shape*2:sl_shape*3] = STACK_OG
-                
             # save slice height
-            if(self.slice==[0,1,2]):
-                ALL_STACKS[1,   0:sl_shape] =   STACK_OG
-                ALL_STACKS[1, sl_shape:sl_shape*2] = STACK_OG
-                ALL_STACKS[1, sl_shape*2:sl_shape*3] = STACK_OG
+            ALL_STACKS[1, 0:sl_shape] = STACK1
+            ALL_STACKS[1, sl_shape:sl_shape*2] = STACK1
+            ALL_STACKS[1, sl_shape*2:sl_shape*3] = STACK1
 
+        else:
+            len_s = len(self.slice)
+            sl_shape = img0.shape[1]//len_s
+
+            STACK_OG = og_slice_pos_pre(sl_shape, [1,1,1], 1, 0, [sl_shape,sl_shape,sl_shape], device=flow.device)
+            STACK1 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[0], [sl_shape,sl_shape,sl_shape], device=flow.device)
+            STACK2 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[1], [sl_shape,sl_shape,sl_shape], device=flow.device)
+            STACK3 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[2], [sl_shape,sl_shape,sl_shape], device=flow.device)
+
+            ALL_STACKS = torch.zeros((2, img0.shape[1], 4, 4), device=flow.device)
+            for i in range(len_s):
+                stack_num = self.slice[i]
+                if stack_num == 0:
+                    ALL_STACKS[0, sl_shape*i:sl_shape*(i+1)] = STACK1
+                if stack_num == 1:
+                    ALL_STACKS[0, sl_shape*i:sl_shape*(i+1)] = STACK2
+                if stack_num == 2:
+                    ALL_STACKS[0, sl_shape*i:sl_shape*(i+1)] = STACK3
+
+            # save slice height
+            for i in range(len_s):
+                ALL_STACKS[1, sl_shape*i:sl_shape*(i+1)] = STACK_OG
+
+        rep = int(self.spacing / self.subsample) # number of times slice is repeated
+
+        # remove duplicates
+        img0 = img0[:,::rep]
+        flow = flow[:,::rep]
+        ALL_STACKS = ALL_STACKS[:,::rep]
+
+        # find all the slices that have non-zero masks
+        keep = img0[1:].reshape(img0[1:].shape[1], -1).any(dim=1)
+        print("Number of slices:", keep.sum())
+
+        # ensure even number of slices
+        if keep.sum() % 2 == 1:
+            idx_last = torch.nonzero(keep, as_tuple=True)[0][-1]
+            idx_first = torch.nonzero(keep, as_tuple=True)[0][0]
+            if idx_last < keep.shape[0] - 1:
+                keep[idx_last+1] = 1
             else:
-                for i in range(len_s):
-                    stack_num = self.slice[i]
-                    ALL_STACKS[1,sl_shape*i:sl_shape*(i+1)] =   STACK_OG
-        
-         
-            remove_repeat = True
-            print("REMOVE REPEAT?")
-            print(remove_repeat)
-            
-            if (remove_repeat==True):
-                
-                rep = int(self.spacing / self.subsample)# number of times slice is repeated
+                if idx_first > 0:
+                    keep[idx_first-1] = 1
+                else:
+                    keep[idx_first] = 0
+                    print("ODD NUMBER OF SLICES")
 
-                # remove duplicates
-                img0 = img0[:,::rep]
-                flow = flow[:,::rep]
-                ALL_STACKS = ALL_STACKS[:,::rep]
+        # filter out slices with zero masks
+        img0 = img0[:,keep]
+        ALL_STACKS = ALL_STACKS[:,keep]
+        flow = flow[:,keep]
 
-                # find all the slices that have non-zero masks
-                keep = img0[1:].reshape(img0[1:].shape[1], -1).any(dim=1)
+        if self.mlp_training:
+            print("IN MLP TRAINING")
 
-                print("Number of slices")
-                print(keep.sum())
-                # ensure even number of slices
-                if(keep.sum()%2==1):
-                    idx_last = torch.nonzero(keep, as_tuple=True)[0][-1]
-                    idx_first =  torch.nonzero(keep, as_tuple=True)[0][0]
-                    if(idx_last<keep.shape[0]-1):
-                        keep[idx_last+1] = 1
-                    else:
+            num_classes = 3
+            num_rotations = 4
+            one_hot_stack = FF.one_hot(torch.tensor(self.slice), num_classes=num_classes).float().to(flow.device)
+            one_hot_rots = FF.one_hot(rot_buckets, num_classes=num_rotations).float().to(flow.device)
+            one_hot = torch.cat([one_hot_stack, one_hot_rots], dim=1)
 
-                        idx_first = torch.nonzero(keep, as_tuple=True)[0][0]
-                        if(idx_first>0):
-                            keep[idx_first-1] = 1
-                        else:
-                            keep[idx_first] = 0
-                            print("ODD NUMBER OF SLICES")
+            print(img0.shape, ALL_STACKS.shape, one_hot.shape)
 
-                # filter out slices with non-zero masks
-                img0 = img0[:,keep]   
-     
-                ALL_STACKS = ALL_STACKS[:,keep]
-                flow = flow[:,keep]
+            if self.predict_vec and not self.no_rotation:
+                stack_orientation_6 = torch.tensor(self.slice) * 2
+                stack_neg = torch.tensor(rot180_stack) + stack_orientation_6
+                one_hot_stack_dir = FF.one_hot(stack_neg, num_classes=6).float().to(flow.device)
+                one_hot = torch.cat([one_hot_stack_dir, one_hot_rots], dim=1)
 
-            # 
-            # if(ONE_LAYER_ONLY):
-            #  #   flow = flow[:,:,::16,::16]*(1/16)
-            #     flow = flow[:,:,:,:] * (1/16)
-            
-            if self.mlp_training:
-                print("IN MLP TRAINING")
-                
-                num_classes = 3
-                num_rotations = 4 
-                one_hot_stack = FF.one_hot(torch.tensor(self.slice), num_classes=num_classes).float().to(flow.device)
-                one_hot_rots = FF.one_hot(rot_buckets, num_classes=num_rotations).float().to(flow.device)
-                one_hot = torch.cat([one_hot_stack, one_hot_rots], dim=1)
-         
-                print(img0.shape, ALL_STACKS.shape,one_hot.shape )
+                if self.slice_drop_out != 0 and self.augment:
+                    drop_out = torch.rand(1).item() * self.slice_drop_out
 
-                if self.predict_vec and not self.no_rotation:
-                    stack_orientation_6 = torch.tensor(self.slice) * 2
-                    stack_neg = torch.tensor(rot180_stack) + stack_orientation_6
-                    one_hot_stack_dir = FF.one_hot(stack_neg, num_classes=6).float().to(flow.device)
-                    one_hot = torch.cat([one_hot_stack_dir, one_hot_rots], dim=1)
+                    print("drop out:", drop_out)
+                    img0 = img0.contiguous()
 
-                    if(self.slice_drop_out!=0 and self.augment==True):
-                        drop_out = torch.rand(1).item() * self.slice_drop_out  # random float between 0 and 0.6
-            
-                        print("drop out")
-                        print(drop_out)
-                        img0 = img0.contiguous()
+                    B, S, H, W = img0.shape
+                    print("B,S,H,W:", B, S, H, W)
 
-                        # 2. get shape
-                        B, S, H, W = img0.shape
-                        print("B,S,H,W:", B, S, H, W)
+                    keep = max(1, int((1-drop_out) * S))
+                    idx = torch.arange(S, device=img0.device, dtype=torch.long)
 
-                        # 3. create idx SAFELY
-                        keep = max(1, int((1-drop_out) * S))
-                        idx = torch.arange(S, device=img0.device, dtype=torch.long)
+                    perm = torch.randperm(S, device=img0.device)
+                    idx = idx[perm][:keep]
+                    idx, _ = torch.sort(idx)
 
-                        # 4. random drop WITHOUT index_select first
-                        perm = torch.randperm(S, device=img0.device)
-                        idx = idx[perm][:keep]
-                        idx, _ = torch.sort(idx)
+                    img0 = img0.index_select(1, idx)
+                    ALL_STACKS = ALL_STACKS.index_select(1, idx)
 
-                        # 6. index
-                        
-                        img0 = img0.index_select(1, idx)
-                        ALL_STACKS = ALL_STACKS.index_select(1, idx)
+                    return (img0, ALL_STACKS), one_hot
+                else:
+                    return (img0, ALL_STACKS), one_hot
 
-                        return (img0,ALL_STACKS), one_hot
-                    else:
-                        return (img0,ALL_STACKS), one_hot
-                
+            if self.predict_vec and self.no_rotation:
+                stack_orientation_6 = torch.tensor(self.slice) * 2
+                stack_neg = torch.tensor(rot180_stack) + stack_orientation_6
+                one_hot_stack_dir = FF.one_hot(stack_neg, num_classes=6).float().to(flow.device)
+                return (img0, ALL_STACKS), one_hot_stack_dir
 
-                if self.predict_vec and self.no_rotation:
-                    stack_orientation_6 = torch.tensor(self.slice) * 2
+            if self.no_rotation:
+                one_hot_order = FF.one_hot(torch.tensor(rot180_stack), num_classes=2).float().to(flow.device)
+                one_hot = torch.cat([one_hot_stack, one_hot_order], dim=1)
+                return (img0, ALL_STACKS), one_hot
 
-                    
-                    stack_neg = torch.tensor(rot180_stack) + stack_orientation_6
-         
-                    one_hot_stack_dir = FF.one_hot(stack_neg, num_classes=6).float().to(flow.device)
-                #    one_hot = torch.cat([one_hot_stack_dir, one_hot_rots], dim=1)
-                    return (img0,ALL_STACKS), one_hot_stack_dir
+            if self.stack_order_pred:
+                one_hot_order = FF.one_hot(torch.tensor(rot180_stack), num_classes=2).float().to(flow.device)
+                one_hot = torch.cat([one_hot_stack, one_hot_rots, one_hot_order], dim=1)
+                return (img0, ALL_STACKS), one_hot
+            return (img0, ALL_STACKS), one_hot
 
-                if self.no_rotation:
-                    one_hot_order = FF.one_hot(torch.tensor(rot180_stack), num_classes=2).float().to(flow.device)
-                    one_hot = torch.cat([one_hot_stack, one_hot_order], dim=1)
-                    return (img0,ALL_STACKS), one_hot
-                
-                if self.stack_order_pred:
-                    one_hot_order = FF.one_hot(torch.tensor(rot180_stack), num_classes=2).float().to(flow.device)
-                    one_hot = torch.cat([one_hot_stack, one_hot_rots, one_hot_order], dim=1)
-                    return (img0,ALL_STACKS), one_hot
-                return (img0,ALL_STACKS), one_hot
+        print("GT DIMS:", flow.shape)
+        print("flow min and max")
+        print(flow.max(), flow.min())
+        return (img0, ALL_STACKS), flow
 
 
-            print("GT DIMS:", flow.shape)
-            return (img0,ALL_STACKS), flow
-        
-        
-
- 
 
 class Pad2d(torch.nn.Module):
-    
+
     def __init__(self, padding, fill=0, padding_mode="constant"):
         super().__init__()
 
@@ -704,10 +577,6 @@ class Pad2d(torch.nn.Module):
         """
         return F.pad(img, self.padding, self.fill, self.padding_mode),\
                F.pad(seg, self.padding, self.fill, self.padding_mode)
-
-
-
-
 
 
 class Normalize():
@@ -731,15 +600,12 @@ class ToTensor(transforms.ToTensor):
     def __call__(self, img, seg):
         if self.imgtype == 'img':
             img = F.to_tensor(img)
-            # img = torch.as_tensor(img)
         elif self.imgtype == 'label':
             img = torch.as_tensor(np.array(img), dtype=torch.int64)
-    
+
         seg = torch.as_tensor(np.array(seg), dtype=torch.int64)
 
         return img, seg
-
-
 
 
 class ScaleZeroOne():
@@ -753,12 +619,9 @@ class ScaleZeroOne():
 
         gamma = torch.empty(1).normal_(std=math.sqrt(self.sig_gamma_sq)).item() if self.sig_gamma_sq > 0 else 0
 
-        
         img = (img - img.min()) * (1 / (img.max() - img.min())) ** math.exp(gamma)
-    
 
         return img, seg
-
 
 
 class ToTensor3d(transforms.ToTensor):
@@ -768,7 +631,7 @@ class ToTensor3d(transforms.ToTensor):
         self.is_cuda = False
 
     def __call__(self, img, seg):
-        img = torch.as_tensor(img)# * (1/255)
+        img = torch.as_tensor(img)
         seg = torch.as_tensor(seg)
 
         return img, seg

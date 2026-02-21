@@ -43,6 +43,50 @@ class Flow_SNet_MLP(nn.Module):
         self.count = 0 # if want to start applying projection after some iteration
         self.drop_out = drop_out
 
+       # self.pool4mlp = Pool4MLP(pool_feature=3, pool_slices=8)
+        #self.mlp = MLP(hidden_sizes=[128, 64], out_features=3)
+       # self.mlp = MLP(hidden_sizes=[128, 64], out_features=7)
+        #self.mlp = MLP(hidden_sizes=[128, 64], out_features=8)
+      #  self.mlp = MLP(hidden_sizes=[128, 64], out_features=9)
+        
+        # #more slice feats 
+      #  self.pool4mlp = Pool4MLP(pool_feature=3, pool_slices=15)
+      #  self.mlp = MLP(hidden_sizes=[128, 64], in_features = 15, out_features=9)
+        
+        # self.pool4mlp = Pool4MLP(pool_feature=3, pool_slices=15)
+        # self.mlp = MLP(hidden_sizes=[128, 64], in_channel_features = 3, in_slice_features = 15, out_features=9)
+
+    
+        # #more slice feats  + bigger MLP
+        # self.pool4mlp = Pool4MLP(pool_feature=3, pool_slices=15)
+        # self.mlp = MLP(hidden_sizes=[256, 128], in_features = 15, out_features=9)
+
+        #more slice feats  + bigger MLP
+        # self.pool4mlp = Pool4MLP(pool_feature=3, pool_slices=15)
+        # self.mlp = MLP(hidden_sizes=[256, 128], in_channel_features = 3, in_slice_features = 15, out_features=9)
+
+        # self.pool4mlp = Pool4MLP(pool_feature=30, pool_slices=8)
+        # self.mlp = MLP(hidden_sizes=[256, 128], in_channel_features = 30, in_slice_features = 8, out_features=9)
+
+
+        #attention mechanism
+        # self.pool4mlp = Pool4MLP_attention(pool_feature=3, pool_slices=8)
+        # self.mlp = MLP(hidden_sizes=[256, 128], in_features = 8, out_features=9)
+
+        # more slice features and 16x16
+        # self.pool4mlp = Pool4MLP(pool_feature=30, pool_slices=8)
+        # self.mlp = MLP(hidden_sizes=[256, 128], in_channel_features = 30, in_slice_features = 8, out_features=9, plane_features=16)
+       
+        # self.pool4mlp = Pool4MLP(pool_feature=30, pool_slices=15)
+        # self.mlp = MLP(hidden_sizes=[256, 128], in_channel_features = 30, in_slice_features = 15, out_features=9, plane_features=16)
+
+    #     self.pool4mlp = Pool4MLP(pool_feature=30, pool_slices=15)
+    #     self.mlp = MLP(hidden_sizes=[256, 128], in_channel_features = 30, in_slice_features = 15, out_features=5, plane_features=32)
+
+        # self.pool4mlp = Pool4MLP(pool_feature=30, pool_slices=15)
+      # # self.mlp = MLP(hidden_sizes=[256, 128], in_channel_features = 30, in_slice_features = 15, out_features=9, plane_features=32)
+        # self.mlp = MLP(hidden_sizes=[256, 128], in_channel_features = 30, in_slice_features = 15, out_features=6, plane_features=32)
+
         self.drop_out = 0
         
     #     self.pool4mlp = Pool4MLP(pool_feature=30, pool_slices=15)
@@ -167,6 +211,7 @@ class Flow_SNet_multi(nn.Module):
         self.slice = slice
         slice = 0
 
+        print("num conv per flow", num_conv_per_flow)
         # defines 2D U-net (encoder), put all slices in the first dimension so use slice = 0
         self.unets = Flow_UNet_3stacks(*args, conv_kernel_sizes=conv_kernel_sizes[slice], pool_kernel_sizes=pool_kernel_sizes[slice],
                                slab_kernel_sizes=slab_kernel_sizes[slice], slab_stride_sizes=slab_stride_sizes[slice], 
@@ -204,11 +249,15 @@ class Flow_SNet_multi(nn.Module):
             flow = torch.zeros([xs.shape[0], xs.ndim - 2] + list(xs.shape[2:]), device=xs.device)
             mask = torch.ones([xs.shape[0], 1] + list(xs.shape[2:]), device=xs.device)
             x3 = torch.zeros([xs.shape[0], xs.shape[1]] + sizes[-1], device=xs.device)
-
+            
             # DEFINE PSF
+            
             if(not self.crop):
                 slice_input_size = 128
     
+          #  slice_input_size = 64
+          #  print("SLICE INPUT SIZE, MIDDLE PROJECT?, Crop")
+          #  print(slice_input_size, MIDDLE_PROJECT_ONLY, self.crop)
             if( self.crop and slice_input_size == 128):
                 psf_vals = torch.ones((1,2))*0.5
                 psf_vals = psf_vals.to(device=xs.device)
@@ -219,7 +268,7 @@ class Flow_SNet_multi(nn.Module):
                 psf=(psf_vals, psf_coords)
 
     
-            if( self.crop and slice_input_size == 256):
+            elif( self.crop and slice_input_size == 256):
                 psf_vals = torch.ones((1,4))*0.25
                 psf_vals = psf_vals.to(device=xs.device)
                 psf_coords = torch.zeros((3,4))
@@ -229,7 +278,11 @@ class Flow_SNet_multi(nn.Module):
                 psf_coords[0,3] = 3 #2
                 psf_coords = psf_coords.to(device=xs.device)
                 psf=(psf_vals, psf_coords)
-
+            else:
+                print("here!")
+                MIDDLE_PROJECT_ONLY = False
+           # print("SLICE INPUT SIZE, MIDDLE PROJECT?")
+           # print(slice_input_size, MIDDLE_PROJECT_ONLY)
             
             # DIFFERENT EXPERIMENTAL SETTINGS
             range_loop = range(len(self.unet3.dec_blocks))
@@ -241,12 +294,14 @@ class Flow_SNet_multi(nn.Module):
             SLICE_LOSS = False
             MULTI_SCALE_LOSS = True
             MULTI_SCALE_LOSS_REAL = False
+            all_scales = False
+            MIDDLE_PROJECT_ONLY = True
             
             simplified_architecture = True # True for last run 
             simplified_architecture2 = False
             extra_bottleneck = True
             correct_mask = False 
-            MIDDLE_PROJECT_ONLY = True # True for last run
+            # True for last run
          
             SAVE_INTER = False
             STOP_LAYER = 0
@@ -325,8 +380,8 @@ class Flow_SNet_multi(nn.Module):
 
                 else:
                     x3 = self.unet3.dec_blocks[u](x3, splat)
-
-                inner = torch.cat((x3, x3, x3), dim=2)
+                
+               # del splat
                 slice_shape = shape_sp.copy()
                 slice_shape[0] = slice_shape[0]*3
     
@@ -345,6 +400,8 @@ class Flow_SNet_multi(nn.Module):
                     else:
                         mask_correct = torch.ones_like(mask)
                     xw = self.unet3.warp.apply_flow_thin(x3, flow, ALL_STACKS[0], flow_dim, vol_dim, shape_sp, [1,x_ratio,x_ratio], mask=mask_correct,  mode='bilinear') #item[0][None].shape[-3:])
+                
+              #  del x3
 
 
 
@@ -354,10 +411,12 @@ class Flow_SNet_multi(nn.Module):
                         
                         skips_new = self.unets.dec_blocks[u](skips[u], skips[u])
                         flow, mask = self.unets.flow_add(flow, self.unets.flo_blocks[u](torch.cat([skips_new, xw], 1)))
+                     #   del skips_new
 
                     if extra_bottleneck:
                         skips_new = self.unets.dec_blocks[l](skips[u], skips[u])  
                         flow, mask = self.unets.flow_add(flow, self.unets.flo_blocks[l](torch.cat([skips_new, xw], 1)))
+                     #  del skips_new
 
                         l = l - 1
 
@@ -369,6 +428,9 @@ class Flow_SNet_multi(nn.Module):
 
                     flow2, mask = self.unets.flow_add(flow, self.unets.flo_blocks[u](torch.cat([xs, xw], 1)))                 
                     flow = flow2
+
+              #  del xw
+            
 
 
                 # MULTISCALE LOSS
@@ -386,7 +448,9 @@ class Flow_SNet_multi(nn.Module):
                         flow_ = flow[:,0:3]
                     if(MULTI_SCALE_LOSS):
                         flow_  = F.interpolate(flow_, size=[ flow.shape[2],flow.shape[3]*scale_num,flow.shape[4]*scale_num], mode='trilinear', align_corners=True)
-                    if(x_ratio<16):
+                    if(x_ratio<16 or all_scales == True):
+                        print("adding flow of shape:")
+                        print(flow_.shape)
                         all_flows.append(flow_)
 
 
@@ -430,7 +494,8 @@ class Flow_SNet_multi(nn.Module):
 
                         return all_flows
                     else:
-
+                        print("flow min and max")
+                        print(flow.max(), flow.min())
                         return flow
             
           
@@ -1704,8 +1769,8 @@ def flow_SNet3d(*args, spacing=1, norm=True, num_conv_per_flow=4, num_classes=8,
 #def flow_SNet3d(*args, slice=1, spacing=1, norm=True, base_num_features=[24, 32, 48, 64, 96, 128, 192], num_pool=5, **kwargs):
     #return Flow_SNet(slice=slice, spacing=spacing, input_channels=1, base_num_features=base_num_features, num_classes=8, num_pool=num_pool, norm=norm, X=3)
 
-def flow_SNet3d_multi(*args, spacing=1, slice = [0,1,2], norm=True, base_num_features=[24, 32, 48, 64, 96, 128, 192], num_pool=5, rigid=False,crop=False,**kwargs):
-    return Flow_SNet_multi(spacing=spacing, slice=slice, input_channels=1, base_num_features=base_num_features, num_classes=8, num_pool=num_pool, norm=norm, X=3, rigid=rigid, crop=crop)
+def flow_SNet3d_multi(*args, spacing=1, slice = [0,1,2], norm=True, base_num_features=[24, 32, 48, 64, 96, 128, 192], num_pool=5, rigid=False,crop=False, num_conv_per_flow=4, **kwargs):
+    return Flow_SNet_multi(spacing=spacing, slice=slice, input_channels=1, base_num_features=base_num_features, num_classes=8, num_pool=num_pool, norm=norm, X=3, rigid=rigid, crop=crop, num_conv_per_flow=num_conv_per_flow)
 
 
 def flow_SNet3d_MLP(*args, spacing=1, slice = [0,1,2], norm=True, base_num_features=[24, 32, 48, 64, 96, 128, 192], num_pool=5, rigid=False,crop=False,**kwargs):
@@ -1852,6 +1917,28 @@ def flow_SNet3d2_512_multi_crop_simp2(*args, **kwargs):
 def flow_SNet3d2_1024_multi_crop(*args, **kwargs):
 
     return flow_SNet3d_multi(slice=[0,1,2], spacing=2, base_num_features=[64, 128, 256, 512, 1024, 2048], num_pool=4, norm=True, rigid=False, crop=True)
+
+
+def flow_SNet3d2_1024_multi_crop_num_conv2(*args, **kwargs):
+
+    return flow_SNet3d_multi(slice=[0,1,2], spacing=2, base_num_features=[64, 128, 256, 512, 1024, 2048], num_pool=4, norm=True, rigid=False, crop=True, num_conv_per_flow=2)
+
+
+def flow_SNet3d2_1024_multi_crop_pool3(*args, **kwargs):
+
+    return flow_SNet3d_multi(slice=[0,1,2], spacing=2, base_num_features=[64, 128, 256, 512, 1024, 2048], num_pool=3, norm=True, rigid=False, crop=True)
+
+
+
+def flow_SNet3d2_1024_multi_crop_pool2(*args, **kwargs):
+
+    return flow_SNet3d_multi(slice=[0,1,2], spacing=2, base_num_features=[64, 128, 256, 512, 1024, 2048], num_pool=2, norm=True, rigid=False, crop=True)
+
+
+def flow_SNet3d2_1024_multi_crop_pool1(*args, **kwargs):
+
+    return flow_SNet3d_multi(slice=[0,1,2], spacing=2, base_num_features=[64, 128, 256, 512, 1024, 2048], num_pool=1, norm=True, rigid=False, crop=True)
+
 
 def flow_SNet3d2_1024_MLP(*args, **kwargs):
 

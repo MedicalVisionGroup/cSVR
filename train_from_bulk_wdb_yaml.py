@@ -147,7 +147,7 @@ trainer = Trainer.from_argparse_args(
     logger=wandb_logger,
     gradient_clip_val=0.5,
     gradient_clip_algorithm='norm',
-    precision=32
+ #   precision="bf16"
 )
 
 # --------------------------

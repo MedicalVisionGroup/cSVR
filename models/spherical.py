@@ -43,10 +43,13 @@ def l22_loss_grid(out, tar, masked=True, eps=0e-4, reduction='mean', **kwargs):
     batch, chans, *size = out.shape #batch should always be 1 
     batch_tar, chans_tar, *size_tar = tar.shape #batch should always be 1 
     
-    
+    print("out shape, tar shape")
+    print(out.shape, tar.shape)
     flow_factor = size[1]/size_tar[1]
     tar = F.interpolate(tar, size=size, mode='area') 
     tar[0,3] = (tar[0,3] > 0.5).float()
+    print("tar new shape")
+    print(tar.shape)
     tar[:,0:chans] = tar[:,0:chans]* flow_factor
 
     return torch.sum(tar[:,chans:] * (out[:,:chans] - tar[:,:chans]) ** 2)/ torch.sum(tar[:,chans:])
@@ -291,6 +294,7 @@ def l22_loss_grid_multiscale_real(out_list, tar, masked=True, eps=0e-4, reductio
    # mult_factors = [1,1,1,1,1,4]
    # mult_factors = [16,16,8,4,2,1]
    # mult_factors = [32,32,8,4,2,1]
+    mult_factors = [1,1,1,2]
     for i in range(len(out_list)):
         out = out_list[i]
 
@@ -300,7 +304,8 @@ def l22_loss_grid_multiscale_real(out_list, tar, masked=True, eps=0e-4, reductio
         
         
         flow_factor = size[1]/size_tar[1]
-        tar = F.interpolate(tar, size=size, mode='area') 
+     #   tar = F.interpolate(tar, size=size, mode='area') 
+        tar = F.interpolate(tar, size=size, mode='trilinear', align_corners=True)
         tar[0,3] = (tar[0,3] > 0.5).float()
      #   tar[:,0:chans] = tar[:,0:chans] * flow_factor
 
@@ -319,7 +324,8 @@ def l22_loss_grid_multiscale(out_list, tar, masked=True, eps=0e-4, reduction='me
         batch, chans, *size = out.shape #batch should always be 1 
         batch_tar, chans_tar, *size_tar = tar.shape #batch should always be 1 
         
-        
+        print("out shapes vs tar shape")
+        print(out.shape, tar.shape)
         flow_factor = size[1]/size_tar[1]
         tar = F.interpolate(tar, size=size, mode='area') 
         tar[0,3] = (tar[0,3] > 0.5).float()
@@ -328,6 +334,29 @@ def l22_loss_grid_multiscale(out_list, tar, masked=True, eps=0e-4, reduction='me
         tot_loss = tot_loss + new_add
         print("LOSS AT SCALE ", i, new_add)
     return tot_loss/len(out_list)
+
+
+def TRE_loss_grid_multiscale(out_list, tar, masked=True, eps=0e-4, reduction='mean', **kwargs):
+    tot_loss = 0
+    for i in range(len(out_list)):
+        out = out_list[i]
+
+        
+        batch, chans, *size = out.shape #batch should always be 1 
+        batch_tar, chans_tar, *size_tar = tar.shape #batch should always be 1 
+        
+        print("out shapes vs tar shape")
+        print(out.shape, tar.shape)
+        flow_factor = size[1]/size_tar[1]
+        tar = F.interpolate(tar, size=size, mode='area') 
+        tar[0,3] = (tar[0,3] > 0.5).float()
+        tar[:,0:chans] = tar[:,0:chans]* flow_factor
+      #  new_add = torch.sum(tar[:,chans:] * (out[:,:chans] - tar[:,:chans]) ** 2)/ torch.sum(tar[:,chans:])
+        new_add = torch.sum(torch.norm(tar[:,chans:] * torch.abs(out[:,:chans] - tar[:,:chans]) , dim=1))/ torch.sum(tar[:,chans:])
+        tot_loss = tot_loss + new_add
+        print("TRE LOSS AT SCALE ", i, new_add)
+    return tot_loss/len(out_list)
+
 
 def l22_loss_grid_slice_loss(out, tar, masked=True, eps=0e-4, reduction='mean', **kwargs):
     # if out.shape[0] > 1:

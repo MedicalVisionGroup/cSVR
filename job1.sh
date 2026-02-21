@@ -51,8 +51,8 @@ git commit -m "$JOB_NAME" || echo "No commited changes"
 #bash /data/vision/polina/users/mfirenze/cSVR/feta3d_svr_train_reorient_l2_wb_resume.sh
 
 #python /data/vision/polina/users/mfirenze/cSVR/train_from_bulk_wdb_yaml.py --config ./experiments/jan9_train_params_check_new_config_fix_lr_rep_clean_a6000_real_multi_scale_debug.yaml
-python /data/vision/polina/users/mfirenze/cSVR/train_from_bulk_wdb_yaml.py --config ./experiments/jan14__mlp_norm_64size_vec_rots_rep_small_unet_small_mlp_remove_3D_2D.yaml
-# export JOB_NAME="jan14__mlp_norm_64size_vec_rots_rep_small_unet_small_mlp_remove_3D_2D"
+python /data/vision/polina/users/mfirenze/cSVR/train_from_bulk_wdb_yaml.py --config ./experiments/feb17_node5_repeat.yaml
+# export JOB_NAME="feb17_node5_repeat"
 # envsubst < job1.sh | sbatch 
 
 #python /data/vision/polina/users/mfirenze/cSVR/train_from_bulk_wdb_yaml.py --config ./experiments/train_params_low_mot_vec_new_mlp_imp_mlp_norm_64size_no_rot_vec_correct_flips_in_plane_rots.yaml

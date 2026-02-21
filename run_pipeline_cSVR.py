@@ -37,7 +37,8 @@ def main():
     Parses command-line arguments and iterates over the provided directories.
     """
     parser = argparse.ArgumentParser(description="Process NIfTI stacks and run cSVR.")
-    parser.add_argument("directories", nargs='+', help="List of directories to process.")
+    parser.add_argument("directories", nargs='*', help="List of directories to process.")
+    parser.add_argument("--dir-list", default=None, help="Path to a text file with one directory per line.")
     parser.add_argument("--suffix", default="run1", help="Suffix for output files.")
     parser.add_argument("--run-cSVR", action="store_true", help="Run run_cSVR.py on the output.")
     parser.add_argument("--inr-recon", action="store_true", help="Run inr_recon.py on the output slices.")
@@ -48,7 +49,14 @@ def main():
     parser.add_argument("--output-volume", default=None, help="Directory to save output volume (if different from output-dir).")
     
     args = parser.parse_args()
-    
+
+    directories = list(args.directories)
+    if args.dir_list:
+        with open(args.dir_list) as f:
+            file_dirs = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+        directories = file_dirs + directories
+    if not directories:
+        parser.error("No directories specified. Provide positional arguments or --dir-list.")
 
     model = None
     model_mlp = None
@@ -67,7 +75,8 @@ def main():
         ckpt_path_mlp = "feta3d0_mlp_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_MLP_classification_multihot_order_40_0.03_0.1_12_12_lr0.0001__MLP_only_order"
         ckpt_path_mlp = "feta3d0_mlp_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_MLP_classification_multihot_order_40_0.03_0.1_12_12_lr0.0001__MLP_only_order_eps0"
 
-
+        ckpt_path_recon = "feta3d0_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_multi_crop_l22_loss_grid_multiscale_40_0.03_0.1_180_12_lr0.0001_feb17_node5_repeat_180_in_plane"
+       # ckpt_path_recon = "feta3d0_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_multi_crop_l22_loss_grid_multiscale_40_0.03_0.1_70_12_lr0.0001__feb18_multiscale_traj"
         
         trainee = models.segment(model=models.flow_SNet3d2_512_multi_crop())
         if model1024:
@@ -78,8 +87,10 @@ def main():
 
 
         start = time.time()
-       # trainee.load_state_dict(torch.load(path.join(root_path_mine, ckpt_path_recon, 'best.ckpt'),map_location='cuda')['state_dict'])
-        trainee.load_state_dict(torch.load(path.join('./model_checkpoints', 'UNet_last.ckpt'),map_location='cuda')['state_dict'])
+        #trainee.load_state_dict(torch.load(path.join(root_path_new, ckpt_path_recon, 'last.ckpt'),map_location='cuda')['state_dict'])
+
+        trainee.load_state_dict(torch.load(path.join(root_path_new, ckpt_path_recon, 'last-v1.ckpt'),map_location='cuda')['state_dict'])
+       # trainee.load_state_dict(torch.load(path.join('./model_checkpoints', 'UNet_last.ckpt'),map_location='cuda')['state_dict'])
 
         end = time.time()
         print(f"Loading SVR checkpoint time {end - start:.6f} seconds")
@@ -100,7 +111,7 @@ def main():
         print("Models loaded successfully.")
 
 
-    for directory in args.directories:
+    for directory in directories:
         # Check if the directory exists
         if not os.path.exists(directory):
             print(f"Error: Directory {directory} not found.")
@@ -114,6 +125,8 @@ def main():
             print(f"Processing {directory} with suffix '{args.suffix}'...")
             
             effective_output_dir =  os.path.join(directory, "cSVR_files")
+            if(args.inr_recon):
+                effective_output_dir =  os.path.join(directory, "cSVR_files_inr")
             os.makedirs(effective_output_dir, exist_ok=True)
 
 
@@ -169,16 +182,18 @@ def main():
                     
                     # Ensure slices are where we expect them
                     input_slices_path = args.save_folder if args.save_folder else os.path.join(output_directory, f"{folder_name}_slices")
-                    
+
                     # Construct output filename
                     # Note: Using the same naming convention as the bash script but without explicitly running get_masks first if not done
-                    volume_dir = directory
+                    volume_dir = args.output_volume if args.output_volume else output_directory
                     output_volume_path = os.path.join(volume_dir, f"{folder_name}_cSVR_inr_recon{args.suffix}.nii.gz")
-                    
+                    sim_slices_path = os.path.join(volume_dir, f"{folder_name}_sim_slices")
+
                     # Call inr_recon.inr
                     # Note: passing path string as input_slices, handling internally by inr_recon.inr
                     inr_recon.inr(
                         input_slices=input_slices_path,
+                        simulated_slices= sim_slices_path,
                         output_volume=output_volume_path
                     )
                     print(f"Finished INR reconstruction for {folder_name}")
@@ -195,15 +210,18 @@ def main():
                     
                     # Ensure slices are where we expect them
                     input_slices_path = args.save_folder if args.save_folder else os.path.join(output_directory, f"{folder_name}_slices")
-                    
+
                     # Construct output filename
                     volume_dir = args.output_volume if args.output_volume else output_directory
                     output_volume_path = os.path.join(volume_dir, f"{folder_name}_cSVR_gd_recon{args.suffix}.nii.gz")
-                    
+                    sim_slices_path = os.path.join(volume_dir, f"{folder_name}_sim_slices")
+                    print("sim path: ", sim_slices_path)
+
                     # Call gd_recon.svr
                     gd_recon.svr(
                         input_slices=gd_recon.load_slices(input_slices_path, device=torch.device("cuda")),
                         output_volume=output_volume_path,
+                        simulated_slices= sim_slices_path,
                         no_global_exclusion=True,
                         n_iter=5,
                         n_iter_rec=3,

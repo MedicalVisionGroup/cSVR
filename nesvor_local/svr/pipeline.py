@@ -315,8 +315,8 @@ def slice_to_volume_reconstruction(
         simulate_slices(
             stack, volume, return_weight=False, use_mask=True, psf=psf_tensor
         ), )
-        simulated_slices = stack[:]
-        output_slices = slices_sim[:]
+        output_slices = stack[:]
+        simulated_slices = slices_sim[:]
 #  #   volume.image = volume.image *10 
    # pdb.set_trace()
     # scaled_sim_images = simulated_slices

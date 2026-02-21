@@ -73,8 +73,6 @@ class FeTA(VisionDataset):
             self.labels = self.labels + self.labels
 
        
-     #   self.images = ['/data/vision/polina/users/mfirenze/svr_my_train_2024/data_sampled/padded_output3.nii.gz']
-       # self.labels = ['/data/vision/polina/users/mfirenze/svr_my_train_2024/data_sampled/padded_output_mask3.nii.gz']
 
     def __getitem__(self, index: int, cpu=True, gpu=False) -> Tuple[Any, Any]:
         """
@@ -246,24 +244,10 @@ class Clin(VisionDataset):
         self.numinput = numinput
         self.numclass = numclass
 
-        with open(os.path.join('./datasets/feta_2.1', image_set), 'r') as f:
+        with open(os.path.join('../datasets/feta_2.1', image_set), 'r') as f:
             path_names = [p.strip() for p in f.readlines()]
 
         path_names = [path_names[i] for i in self.split] if isinstance(split, list) else path_names
-
-        #self.images = [os.path.join(self.root, p, 'anat', self.image_file % (p, 'mial' if p < 'sub-041' else 'irtk' if p < 'sub-081' else 'nmic')) for p in path_names]
-        #self.labels = [os.path.join(self.root, p, 'anat', self.label_file % (p, 'mial' if p < 'sub-041' else 'irtk' if p < 'sub-081' else 'nmic')) for p in path_names]
-      #  self.images = ['/data/vision/polina/scratch/mfirenze/all/fetal_clinical/samples/MAP-C505/stack5.nii']
-      #  self.labels = ['/data/vision/polina/scratch/mfirenze/all/fetal_clinical/samples/MAP-C505/mask5.nii']
-
-
-
-      #  self.images = ['/data/vision/polina/scratch/mfirenze/all/svr_my_train_2024/outputs/brain_synth.nii']
-      #  self.labels = ['/data/vision/polina/scratch/mfirenze/all/svr_my_train_2024/outputs/mask_synth.nii']
-
-        #self.images = ['/data/vision/polina/scratch/mfirenze/all/fetal_clinical/samples/feta/stack1.nii']
-        #self.labels = ['/data/vision/polina/scratch/mfirenze/all/fetal_clinical/samples/feta/mask1.nii']
-      #  self.images = ['/data/vision/polina/users/mfirenze/svr_my_train_2024/sub1_id.nii']
 
 
     def __getitem__(self, index: int, cpu=True, gpu=False) -> Tuple[Any, Any]:
@@ -367,270 +351,7 @@ class Clin(VisionDataset):
         return self.numclass
 
 
-# do interpolation with linear interpolation and gaussian filter, use torch methods
-class Clin2(VisionDataset): 
-    def __init__(
-            self,
-            root: str = '../feta_2.1_reg',
-            image_set: str = 'train-clin',
-            split: str = '',
-            stride: int = 1,
-            out_shape: list = [256,256,256],
-            numinput: int = 1,
-            numclass: int = 1,
-            multiply: int = 1,
-            weights = 1,
-            transforms: Optional[Callable] = None,
-            **kwargs
-    ):
-        super().__init__(root, transforms)
-        image_sets = ['train', 'test', 'val']
-        self.stride = stride
-        self.multiply  = multiply
-        self.image_set = image_set
-        self.image_file = 'mask4.nii'
-        self.label_file = 'stack4.nii'
-        self.numinput = numinput
-        self.numclass = numclass
-
-        with open(os.path.join('./datasets/feta_2.1', image_set), 'r') as f:
-            path_names = [p.strip() for p in f.readlines()]
-
-        path_names = [path_names[i] for i in self.split] if isinstance(split, list) else path_names
-
-        #self.images = [os.path.join(self.root, p, 'anat', self.image_file % (p, 'mial' if p < 'sub-041' else 'irtk' if p < 'sub-081' else 'nmic')) for p in path_names]
-        #self.labels = [os.path.join(self.root, p, 'anat', self.label_file % (p, 'mial' if p < 'sub-041' else 'irtk' if p < 'sub-081' else 'nmic')) for p in path_names]
-      #  self.images = ['/data/vision/polina/scratch/mfirenze/all/fetal_clinical/samples/MAP-C505/stack4.nii']
-       # self.labels = ['/data/vision/polina/scratch/mfirenze/all/fetal_clinical/samples/MAP-C505/mask4.nii']
-
-       # self.images = ['/data/vision/polina/scratch/mfirenze/all/fetal_resize/feta_ex_nearest.nii']
-       # self.labels = ['/data/vision/polina/scratch/mfirenze/all/fetal_resize/feta_ex_nearest_t.nii']
-        
-      #  self.images = ['/data/vision/polina/scratch/mfirenze/all/fetal_resize/map51_4.nii']
-       # self.labels = ['/data/vision/polina/scratch/mfirenze/all/fetal_resize/map51_4t.nii']
-
-        self.images = ['/data/vision/polina/scratch/mfirenze/all/fetal_resize/map505_4_v7.nii']
-        self.labels = ['/data/vision/polina/scratch/mfirenze/all/fetal_resize/map505_4t_v7.nii']
-
-        
-       # self.images = ['/data/vision/polina/scratch/mfirenze/all/svr_my_train_2024/outputs/brain_synth2.nii']
-      #  self.labels = ['/data/vision/polina/scratch/mfirenze/all/svr_my_train_2024/outputs/mask_synth2.nii']
-
-
-        #self.images = ['/data/vision/polina/scratch/mfirenze/all/fetal_clinical/samples/feta/stack1.nii']
-        #self.labels = ['/data/vision/polina/scratch/mfirenze/all/fetal_clinical/samples/feta/mask1.nii']
-    def __getitem__(self, index: int, cpu=True, gpu=False) -> Tuple[Any, Any]:
-        """
-        Args:
-            index (int): Index
-        Returns:
-            tuple: (image, target) where target is the image segmentation.
-        """
-        image = self.images[self.stride*index % len(self.images)]
-        label = self.labels[self.stride*index % len(self.images)]
-        # label = label if os.path.isfile(label) else self.labels[self.stride*index]
-
-        img = np.asarray(nib.load(image).dataobj, dtype=np.float32)[None] #fs.Volume.read(image).data[None]
-        target = np.asarray(nib.load(label).dataobj, dtype=np.int8)[None] #fs.Volume.read(label).data[None]
-
-        if self.transforms is not None:
-            img, target = self.transforms(img, target, cpu=cpu, gpu=gpu)
-
-        return img, target, index
-
-
-
-    def __len__(self) -> int:
-        return len(self.images) * self.multiply
-
-    def __outshape__(self) -> list:
-        return self.out_shape
-
-    def __numinput__(self) -> int:
-        return self.numinput
-
-    def __weights__(self):
-        return self.weights
-
-    def __numclass__(self) -> int:
-        return self.numclass
-
-class ClinRecon(VisionDataset): 
-    def __init__(
-            self,
-            root: str = '../feta_2.1_reg',
-            image_set: str = 'train-clin',
-            split: str = '',
-            stride: int = 1,
-            out_shape: list = [256,256,256],
-            numinput: int = 1,
-            numclass: int = 1,
-            multiply: int = 1,
-            weights = 1,
-            transforms: Optional[Callable] = None,
-            **kwargs
-    ):
-        super().__init__(root, transforms)
-        image_sets = ['train', 'test', 'val']
-        self.stride = stride
-        self.multiply  = multiply
-        self.image_set = image_set
-        self.image_file = 'mask4.nii'
-        self.label_file = 'stack4.nii'
-        self.numinput = numinput
-        self.numclass = numclass
-
-        with open(os.path.join('./datasets/feta_2.1', image_set), 'r') as f:
-            path_names = [p.strip() for p in f.readlines()]
-
-        path_names = [path_names[i] for i in self.split] if isinstance(split, list) else path_names
-
-        #self.images = [os.path.join(self.root, p, 'anat', self.image_file % (p, 'mial' if p < 'sub-041' else 'irtk' if p < 'sub-081' else 'nmic')) for p in path_names]
-        #self.labels = [os.path.join(self.root, p, 'anat', self.label_file % (p, 'mial' if p < 'sub-041' else 'irtk' if p < 'sub-081' else 'nmic')) for p in path_names]
-        self.images = ['/data/vision/polina/scratch/mfirenze/all/Data_sharing_MIT_Margherita/processed/MAP-C599/MR-EI_Fetal_Neuro-26334371-20220120/recon.nii']
-
-
-        #self.images = ['/data/vision/polina/scratch/mfirenze/all/fetal_clinical/samples/feta/stack1.nii']
-        #self.labels = ['/data/vision/polina/scratch/mfirenze/all/fetal_clinical/samples/feta/mask1.nii']
-    def __getitem__(self, index: int, cpu=True, gpu=False) -> Tuple[Any, Any]:
-        """
-        Args:
-            index (int): Index
-        Returns:
-            tuple: (image, target) where target is the image segmentation.
-        """
-        image = self.images[self.stride*index % len(self.images)]
-       # label = self.labels[self.stride*index % len(self.images)]
-        # label = label if os.path.isfile(label) else self.labels[self.stride*index]
-
-        img_a = np.asarray(nib.load(image).dataobj, dtype=np.float32)[None] #fs.Volume.read(image).data[None]
-  
-      
-    
-        # do target and make mask
-        x_curr_shape = int(img_a.shape[1])
-        y_curr_shape = int(img_a.shape[2])
-        z_curr_shape = int(img_a.shape[3])
-        size_d = 256
-        if(x_curr_shape <size_d):
-            x_start = int(math.floor((size_d-x_curr_shape)/2))
-            x_start2 = int(math.ceil((size_d-x_curr_shape)/2))
-
-            y_start = int(math.floor((size_d-y_curr_shape)/2))
-            y_start2 = int(math.ceil((size_d-y_curr_shape)/2))
-                
-            z_start = int(math.floor((size_d-z_curr_shape)/2))
-            z_start2 = int(math.ceil((size_d-z_curr_shape)/2))
-
-            border_size = ((0, 0), (x_start, x_start2), (y_start, y_start2),(z_start, z_start2),(0, 0))
-            
-            img_t = np.pad(img_a, border_size, mode='constant', constant_values=(0,0))            
-
-        target = (img_t > 0).astype(int)
-        img = img_t[:,:,:,:,0]
-        target = target.astype(np.int32)[:,:,:,:,0]
-
-
-
-        if self.transforms is not None:
-            img, target = self.transforms(img, target, cpu=cpu, gpu=gpu)
-
-        return img, target, index
-
-    def __len__(self) -> int:
-        return len(self.images) * self.multiply
-
-    def __outshape__(self) -> list:
-        return self.out_shape
-
-    def __numinput__(self) -> int:
-        return self.numinput
-
-    def __weights__(self):
-        return self.weights
-
-    def __numclass__(self) -> int:
-        return self.numclass
-
-class ClinStack(VisionDataset):
-    def __init__(
-            self,
-            root: str = '../clin_stack',
-            image_set: str = 'only3z.txt',
-            split: str = '',
-            stride: int = 1,
-            out_shape: list = [256,256,256],
-            numinput: int = 1,
-            numclass: int = 1,
-            multiply: int = 1,
-            weights = 1,
-            transforms: Optional[Callable] = None,
-            **kwargs
-    ):
-        super().__init__(root, transforms)
-        image_sets = ['train', 'test', 'val']
-        self.stride = stride
-        self.multiply  = multiply
-        self.image_set = image_set
-        #self.image_file = '%s_brain.nii'
-        #self.label_file = '%s_mask.nii'
-        self.image_file = '%sup1.5rcbbpad.nii'
-        self.label_file = '%sup1.5rcbbpad_t.nii'
-        self.numinput = numinput
-        self.numclass = numclass
-
-        with open(os.path.join('./datasets/clin_stack', image_set), 'r') as f:
-            path_names = [p.strip() for p in f.readlines()]
-
-
-        path_names = [path_names[i] for i in self.split] if isinstance(split, list) else path_names
-
-        self.images = [os.path.join(self.root, self.image_file % (p) )for p in path_names]
-        self.labels = [os.path.join(self.root, self.label_file % (p)) for p in path_names]
-
-    def __getitem__(self, index: int, cpu=True, gpu=False) -> Tuple[Any, Any]:
-        """
-        Args:
-            index (int): Index
-        Returns:
-            tuple: (image, target) where target is the image segmentation.
-        """
-        image = self.images[self.stride*index % len(self.images)]
-        label = self.labels[self.stride*index % len(self.images)]
-
-        img = np.asarray(nib.load(image).dataobj, dtype=np.float32)[None] #fs.Volume.read(image).data[None]
-        
-        
-       
-        original_voxel_size = np.array( nib.load(image).header.get_zooms())
-
-        target = np.asarray(nib.load(label).dataobj, dtype=np.int8)[None] #fs.Volume.read(label).data[None]
-
-
-        if self.transforms is not None:
-
-            img, target = self.transforms(img, target, cpu=cpu, gpu=gpu)
-
-        return img, target, index
-
-    def __len__(self) -> int:
-        return len(self.images) * self.multiply
-
-    def __outshape__(self) -> list:
-        return self.out_shape
-
-    def __numinput__(self) -> int:
-        return self.numinput
-
-    def __weights__(self):
-        return self.weights
-
-    def __numclass__(self) -> int:
-        return self.numclass
-
-
-
-def feta3d_svr(root='/data/vision/polina/users/mfirenze/feta_2.1_mial', slice=1, spacing=2, subsample=2, **kwargs):
+def feta3d_svr(root='../feta_2.1_mial', slice=1, spacing=2, subsample=2, **kwargs):
 
     trainformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample, slice=slice)], gpuindex=1)
     transformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample, slice=slice, augment=False)], gpuindex=1)
@@ -650,7 +371,7 @@ def feta3d_svr(root='/data/vision/polina/users/mfirenze/feta_2.1_mial', slice=1,
 
 
 
-def feta3d_svr_3stacks(root='/data/vision/polina/users/mfirenze/feta_2.1_mial', spacing=2, subsample=2,  slice=[0,1,2], flow_final = False, crop=False, rotations=20, translations=0, noise=0, bulk_rotations_plane=0, bulk_rotations_tr_plane=0, mlp_training=False, **kwargs):
+def feta3d_svr_3stacks(root='../feta_2.1_mial', spacing=2, subsample=2,  slice=[0,1,2], flow_final = False, crop=False, rotations=20, translations=0, noise=0, bulk_rotations_plane=0, bulk_rotations_tr_plane=0, mlp_training=False, **kwargs):
 
 
     trainformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.GenerateMotionTrajectory(spacing=spacing, subsample=subsample, slice=slice, flow_final = flow_final, crop=crop, augment= True, rotations=rotations, translations=translations, noise=noise, bulk_rotations_plane=bulk_rotations_plane, bulk_rotations_tr_plane=bulk_rotations_tr_plane, mlp_training=mlp_training, **kwargs )], gpuindex=1)
@@ -671,7 +392,7 @@ def feta3d_svr_3stacks(root='/data/vision/polina/users/mfirenze/feta_2.1_mial', 
 
     return pairset.Sumset(train,extra), valid, tests
 
-def feta3d_svr_no_gpu(root='/data/vision/polina/users/mfirenze/feta_2.1_mial', slice=1, spacing=2, subsample=2, **kwargs):
+def feta3d_svr_no_gpu(root='../feta_2.1_mial', slice=1, spacing=2, subsample=2, **kwargs):
     trainformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample, slice=slice)])
     transformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample, slice=slice, augment=False)])
     testsformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne()], gpuindex=1)
@@ -690,177 +411,6 @@ def feta3d_svr_no_gpu(root='/data/vision/polina/users/mfirenze/feta_2.1_mial', s
 
     return pairset.Sumset(train,extra), valid, tests
 
-
-def feta3d_svr_no_rot(root='/data/vision/polina/scratch/mfirenze/all/feta_2.1_mial', slice=1, spacing=2, subsample=2, **kwargs):
-    trainformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, rotations=0, bulk_rotations=0, subsample=subsample, slice=slice)], gpuindex=1)
-    transformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, rotations=0, bulk_rotations=0, subsample=subsample, slice=slice, augment=False)], gpuindex=1)
-    testsformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne()], gpuindex=1)
-   
-    # atlasformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.Subsample3d()], gpuindex=1)
-
-
-    train = FeTA(root, image_set='train', multiply=5, transforms=trainformer, **kwargs)
-    valid = FeTA(root, image_set='val',   multiply=8, transforms=transformer, **kwargs)
-    # tests = FeTA(root, image_set='val',   transforms=testsformer, **kwargs)
-    tests = MIAL(slice=slice, transforms=testsformer, **kwargs)
-    extra = CRL(root='../CRL_FetalBrainAtlas_2017v3_lia', image_set='train', multiply=30, transforms=trainformer, **kwargs)
-    # atlas = CRL(root='../CRL_FetalBrainAtlas_2017v3_reg', image_set='atlas')
-
-    # _train, _, _ = brain3d_svr(train_set='train-500', slice=slice, spacing=spacing, subsample=subsample, **kwargs)
-
-    return pairset.Sumset(train,extra), valid, tests
-
-def feta3d_svr_translation(root='/data/vision/polina/mfirenze/feta_2.1_mial', slice=1, spacing=2, subsample=2, **kwargs):
-#    trainformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample, slice=slice)], gpuindex=1)
-  #  transformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample, slice=slice, augment=False)], gpuindex=1)
-  #  testsformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne()], gpuindex=1)
-   
-   
-    trainformer= transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0.3, bulk_rotations=0)],gpuindex=1)
-    transformer = transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0.3, bulk_rotations=0)],gpuindex=1)
-    testsformer =  transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0.3, bulk_rotations=0)],gpuindex=1)
-    # atlasformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.Subsample3d()], gpuindex=1)
-
-    train = FeTA(root, image_set='train', multiply=5, transforms=trainformer, **kwargs)
-    valid = FeTA(root, image_set='val',   multiply=8, transforms=transformer, **kwargs)
-    # tests = FeTA(root, image_set='val',   transforms=testsformer, **kwargs)
-    tests = MIAL(slice=slice, transforms=testsformer, **kwargs)
-    extra = CRL(root='../CRL_FetalBrainAtlas_2017v3_lia', image_set='train', multiply=30, transforms=trainformer, **kwargs)
-    # atlas = CRL(root='../CRL_FetalBrainAtlas_2017v3_reg', image_set='atlas')
-
-    # _train, _, _ = brain3d_svr(train_set='train-500', slice=slice, spacing=spacing, subsample=subsample, **kwargs)
-
-    return pairset.Sumset(train,extra), valid, tests
-
-def feta3d_svr_no_changes(root='/data/vision/polina/scratch/siyoung/Developer/feta_2.1_mial', slice=1, spacing=2, subsample=2, **kwargs):
-  #  trainformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample, slice=slice)], gpuindex=1)
-  #  transformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample, slice=slice, augment=False)], gpuindex=1)
- #   testsformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne()], gpuindex=1)
-   
-    # atlasformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.Subsample3d()], gpuindex=1)
-
-
-    trainformer= transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0, bulk_rotations=0)],gpuindex=1)
-    transformer = transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0, bulk_rotations=0)],gpuindex=1)
-    testsformer =  transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0, bulk_rotations=0)],gpuindex=1)
-    
-
-    train = FeTA(root, image_set='train', multiply=5, transforms=trainformer, **kwargs)
-    valid = FeTA(root, image_set='val',   multiply=8, transforms=transformer, **kwargs)
-    # tests = FeTA(root, image_set='val',   transforms=testsformer, **kwargs)
-    tests = MIAL(slice=slice, transforms=testsformer, **kwargs)
-    extra = CRL(root='../CRL_FetalBrainAtlas_2017v3_lia', image_set='train', multiply=30, transforms=trainformer, **kwargs)
-    # atlas = CRL(root='../CRL_FetalBrainAtlas_2017v3_reg', image_set='atlas')
-
-    # _train, _, _ = brain3d_svr(train_set='train-500', slice=slice, spacing=spacing, subsample=subsample, **kwargs)
-
-    return pairset.Sumset(train,extra), valid, tests
-
-
-
-def feta3d_svr_clin(root='/data/vision/polina/scratch/siyoung/Developer/feta_2.1_mial', slice=1, spacing=2, subsample=2, **kwargs):
-   # trainformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample,  slice=slice)], gpuindex=1)
-  #  transformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample, slice=slice, augment=False)], gpuindex=1)
-   # testsformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne()], gpuindex=1)
-   
-    trainformer= transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice2(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0, bulk_rotations=0)],gpuindex=1)
-    transformer = transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice2(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0, bulk_rotations=0)],gpuindex=1)
-    testsformer =  transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice2(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0, bulk_rotations=0)],gpuindex=1)
-    # atlasformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.Subsample3d()], gpuindex=1)
-
-    train = Clin(root, image_set='train', multiply=5, transforms=trainformer, **kwargs)
-    valid = Clin(root, image_set='val',   multiply=8, transforms=transformer, **kwargs)# tests = FeTA(root, image_set='val',   transforms=testsformer, **kwargs)
-    tests = MIAL(slice=slice, transforms=testsformer, **kwargs)
-    extra = CRL(root='../CRL_FetalBrainAtlas_2017v3_lia', image_set='train', multiply=30, transforms=trainformer, **kwargs)
-    # atlas = CRL(root='../CRL_FetalBrainAtlas_2017v3_reg', image_set='atlas')
-
-    # _train, _, _ = brain3d_svr(train_set='train-500', slice=slice, spacing=spacing, subsample=subsample, **kwargs)
-
-    return pairset.Sumset(train, extra), valid, tests
-
-def feta3d_svr_clin2(root='/data/vision/polina/scratch/siyoung/Developer/feta_2.1_mial', slice=1, spacing=2, subsample=2, **kwargs):
-   # trainformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample,  slice=slice)], gpuindex=1)
-  #  transformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample, slice=slice, augment=False)], gpuindex=1)
-   # testsformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne()], gpuindex=1)
-   
-    trainformer= transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice2(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0, bulk_rotations=0, augment=False )],gpuindex=1)
-    transformer = transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice2(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0, bulk_rotations=0, augment=False)],gpuindex=1)
-    testsformer =  transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice2(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0, bulk_rotations=0, augment=False)],gpuindex=1)
-    # atlasformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.Subsample3d()], gpuindex=1)
-
-    train = Clin2(root, image_set='train', multiply=5, transforms=trainformer, **kwargs)
-    valid = Clin2(root, image_set='val',   multiply=8, transforms=transformer, **kwargs)# tests = FeTA(root, image_set='val',   transforms=testsformer, **kwargs)
-    tests = MIAL(slice=slice, transforms=testsformer, **kwargs)
-    extra = CRL(root='../CRL_FetalBrainAtlas_2017v3_lia', image_set='train', multiply=30, transforms=trainformer, **kwargs)
-    # atlas = CRL(root='../CRL_FetalBrainAtlas_2017v3_reg', image_set='atlas')
-
-    # _train, _, _ = brain3d_svr(train_set='train-500', slice=slice, spacing=spacing, subsample=subsample, **kwargs)
-
-    return pairset.Sumset(train, extra), valid, tests
-
-def feta3d_svr_clin_recon(root='/data/vision/polina/scratch/siyoung/Developer/feta_2.1_mial', slice=1, spacing=2, subsample=2, **kwargs):
-   # trainformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample,  slice=slice)], gpuindex=1)
-  #  transformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample, slice=slice, augment=False)], gpuindex=1)
-   # testsformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne()], gpuindex=1)
-
-
-   
-       # atlasformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.Subsample3d()], gpuindex=1)
-
-    trainformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample, slice=slice)], gpuindex=1)
-    transformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample, slice=slice, augment=False)], gpuindex=1)
-    testsformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne()], gpuindex=1)
-
-
-    train = ClinRecon(root, image_set='train', multiply=5, transforms=trainformer, **kwargs)
-    valid = ClinRecon(root, image_set='val',   multiply=8, transforms=transformer, **kwargs)# tests = FeTA(root, image_set='val',   transforms=testsformer, **kwargs)
-    tests = MIAL(slice=slice, transforms=testsformer, **kwargs)
-    extra = CRL(root='../CRL_FetalBrainAtlas_2017v3_lia', image_set='train', multiply=30, transforms=trainformer, **kwargs)
-    # atlas = CRL(root='../CRL_FetalBrainAtlas_2017v3_reg', image_set='atlas')
-
-    # _train, _, _ = brain3d_svr(train_set='train-500', slice=slice, spacing=spacing, subsample=subsample, **kwargs)
-
-    return pairset.Sumset(train, extra), valid, tests
-
-def feta3d_svr_clin_stack(root='/data/vision/polina/scratch/mfirenze/all/fetal_clin/processed', slice=1, spacing=2, subsample=2, **kwargs):
-   # trainformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample,  slice=slice)], gpuindex=1)
-  #  transformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample, slice=slice, augment=False)], gpuindex=1)
-   # testsformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne()], gpuindex=1)
-   
-    trainformer= transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice2(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0, bulk_rotations=0, augment=False )],gpuindex=1)
-    transformer = transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice2(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0, bulk_rotations=0, augment=False)],gpuindex=1)
-    testsformer =  transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice2(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0, bulk_rotations=0, augment=False)],gpuindex=1)
-    # atlasformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.Subsample3d()], gpuindex=1)
-
-    train = ClinStack(root, image_set='only3z.txt', multiply=5, transforms=trainformer, **kwargs)
-    valid = ClinStack(root, image_set='only3z.txt',   multiply=8, transforms=transformer, **kwargs)# tests = FeTA(root, image_set='val',   transforms=testsformer, **kwargs)
-    tests = ClinStack(slice=slice, transforms=testsformer, **kwargs)
-    extra = ClinStack(root='../CRL_FetalBrainAtlas_2017v3_lia', image_set='only3z.txt', multiply=30, transforms=trainformer, **kwargs)
-    # atlas = CRL(root='../CRL_FetalBrainAtlas_2017v3_reg', image_set='atlas')
-
-    # _train, _, _ = brain3d_svr(train_set='train-500', slice=slice, spacing=spacing, subsample=subsample, **kwargs)
-
-    return pairset.Sumset(train, extra), valid, tests
-
-def feta3d_svr_clin_stack_no_gpu(root='/data/vision/polina/scratch/mfirenze/all/fetal_clin/processed', slice=1, spacing=2, subsample=2, **kwargs):
-   # trainformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample,  slice=slice)], gpuindex=1)
-  #  transformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.RandAffine3dSlice(spacing=spacing, zooms=(-0.1,0.1), subsample=subsample, slice=slice, augment=False)], gpuindex=1)
-   # testsformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne()], gpuindex=1)
-   
-    trainformer= transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice2_no_gpu(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0, bulk_rotations=0, augment=False )])
-    transformer = transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice2_no_gpu(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0, bulk_rotations=0, augment=False)])
-    testsformer =  transforms.Compose([transforms.ToTensor3d(),transforms.ScaleZeroOne(),transforms.RandAffine3dSlice2_no_gpu(spacing=spacing, zooms=(0,0), subsample=subsample, slice=slice, translations=0, rotations=0, bulk_translations=0, bulk_rotations=0, augment=False)])
-    # atlasformer = transforms.Compose([transforms.ToTensor3d(), transforms.ScaleZeroOne(), transforms.Subsample3d()], gpuindex=1)
-
-    train = ClinStack(root, image_set='only3z.txt', multiply=5, transforms=trainformer, **kwargs)
-    valid = ClinStack(root, image_set='only3z.txt',   multiply=8, transforms=transformer, **kwargs)# tests = FeTA(root, image_set='val',   transforms=testsformer, **kwargs)
-    tests = ClinStack(slice=slice, transforms=testsformer, **kwargs)
-    extra = ClinStack(root='../CRL_FetalBrainAtlas_2017v3_lia', image_set='only3z.txt', multiply=30, transforms=trainformer, **kwargs)
-    # atlas = CRL(root='../CRL_FetalBrainAtlas_2017v3_reg', image_set='atlas')
-
-    # _train, _, _ = brain3d_svr(train_set='train-500', slice=slice, spacing=spacing, subsample=subsample, **kwargs)
-
-    return pairset.Sumset(train, extra), valid, tests
 
 def feta3d0_svr(**kwargs):
     return feta3d_svr(slice=0)
@@ -899,9 +449,14 @@ def feta3d0_multi_stack_svr_final_sb2_crop(subsample=2, slice=[0,1,2],crop=True,
 
     return feta3d_svr_3stacks(spacing=4, subsample=subsample, flow_final=True,slice=slice, crop=crop, rotations=rotations, translations=translations,noise=noise,bulk_rotations_plane=bulk_rotations_plane,bulk_rotations_tr_plane=bulk_rotations_tr_plane,mlp_training = False,**kwargs)
 
+def feta3d0_multi_stack_svr_final_sb4_crop(subsample=4, slice=[0,1,2],crop=True,rotations=20, translations=0, noise=0, bulk_rotations_plane=0, bulk_rotations_tr_plane=0,mlp_training = False, **kwargs):
+
+    return feta3d_svr_3stacks(spacing=4, subsample=subsample, flow_final=True,slice=slice, crop=crop, rotations=rotations, translations=translations,noise=noise,bulk_rotations_plane=bulk_rotations_plane,bulk_rotations_tr_plane=bulk_rotations_tr_plane,mlp_training = False,**kwargs)
+
 def feta3d0_mlp_multi_stack_svr_final_sb2_crop(subsample=2, slice=[0,1,2],crop=True,rotations=20, translations=0, noise=0, bulk_rotations_plane=0, bulk_rotations_tr_plane=0, mlp_training = True, **kwargs):
 
     return feta3d_svr_3stacks(spacing=4, subsample=subsample, flow_final=True,slice=slice, crop=crop, rotations=rotations, translations=translations,noise=noise,bulk_rotations_plane=bulk_rotations_plane,bulk_rotations_tr_plane=bulk_rotations_tr_plane, mlp_training = mlp_training, **kwargs)
+
 
 
 
