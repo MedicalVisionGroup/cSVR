@@ -434,7 +434,7 @@ class GenerateMotionTrajectory:
             STACK1 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[0], [sl_shape,sl_shape,sl_shape], device=flow.device)
             STACK2 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[1], [sl_shape,sl_shape,sl_shape], device=flow.device)
             STACK3 = og_slice_pos_pre(sl_shape, [1,1,1], 1, self.slice[2], [sl_shape,sl_shape,sl_shape], device=flow.device)
-            no_stack_info = False # do not give fact that slices are orthogonal up!
+            no_stack_info = True # do not give fact that slices are orthogonal up!
 
             ALL_STACKS = torch.zeros((2, sl_shape*3, 4, 4), device=flow.device)
             ALL_STACKS[0, 0:sl_shape] = STACK1

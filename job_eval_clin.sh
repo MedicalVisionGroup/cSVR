@@ -49,6 +49,6 @@ python /data/vision/polina/users/mfirenze/cSVR/get_TRE_from_file_outputs.py \
     --clin "True"
 
 
-#export SUFFIX="cSVR_feb20_inr_v5_"
+#export SUFFIX="cSVR_feb20_inr_v4_"
 #jobid=$(envsubst '$SUFFIX' < job_eval_clin.sh | sbatch | awk '{print $4}')
 #sbatch --dependency=afterok:$jobid summarize_results.sh $SUFFIX
