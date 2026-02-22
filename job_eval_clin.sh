@@ -38,17 +38,31 @@ FILE=${FILES[$IDX]}
 FILE_NAME=$(basename "$FILE")
 
 echo "Running: idx=$IDX, file=$FILE"
-python "${SCRIPT_DIR}/run_pipeline_cSVR.py" "${DATA_DIR}/$FILE" --suffix "$SUFFIX" --run-cSVR --inr-recon
+python "${SCRIPT_DIR}/run_pipeline_cSVR.py" "${DATA_DIR}/$FILE" --suffix "$SUFFIX" --run-cSVR --gd-recon
 
 
 python /data/vision/polina/users/mfirenze/cSVR/get_TRE_from_file_outputs.py \
-    --og_slices "${DATA_DIR}/${FILE_NAME}/cSVR_files_inr/${FILE_NAME}_sim_slices" \
-    --folder_est "${DATA_DIR}/${FILE_NAME}/cSVR_files_inr/${FILE_NAME}_slices" \
+    --og_slices "${DATA_DIR}/${FILE_NAME}/cSVR_files/${FILE_NAME}_sim_slices" \
+    --folder_est "${DATA_DIR}/${FILE_NAME}/cSVR_files/${FILE_NAME}_slices" \
     --json_path "${SCRIPT_DIR}/evaluate_metrics/${SUFFIX}${IDX}.json" \
-    --img_num 0 \
+    --img_num $IDX \
     --clin "True"
 
 
-#export SUFFIX="cSVR_feb20_inr_v4_"
+
+# python /data/vision/polina/users/mfirenze/cSVR/get_TRE_from_file_outputs.py \
+#     --og_slices "${DATA_DIR}/${FILE_NAME}/cSVR_files_inr/${FILE_NAME}_sim_slices" \
+#     --folder_est "${DATA_DIR}/${FILE_NAME}/cSVR_files_inr/${FILE_NAME}_slices" \
+#     --json_path "${SCRIPT_DIR}/evaluate_metrics/${SUFFIX}${IDX}.json" \
+#     --img_num $IDX \
+#     --clin "True"
+
+
+#export SUFFIX="cSVR_feb20_gd_recon_rep6_"
+#jobid=$(envsubst '$SUFFIX' < job_eval_clin.sh | sbatch | awk '{print $4}')
+#sbatch --dependency=afterok:$jobid summarize_results.sh $SUFFIX
+
+
+#export SUFFIX="cSVR_feb20_gd_recon_rep6_traj"
 #jobid=$(envsubst '$SUFFIX' < job_eval_clin.sh | sbatch | awk '{print $4}')
 #sbatch --dependency=afterok:$jobid summarize_results.sh $SUFFIX

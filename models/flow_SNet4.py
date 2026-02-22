@@ -118,7 +118,7 @@ class Flow_SNet_MLP(nn.Module):
 
         # # SMALL
         self.pool4mlp = Pool4MLP(pool_feature=30, pool_slices=15)
-        self.mlp = MLP_norm(hidden_sizes=[256, 128], in_channel_features = 30, in_slice_features = 15, out_features=10, plane_features=64, dropout=self.drop_out)
+        self.mlp = MLP_norm(hidden_sizes=[256, 128], in_channel_features = 30, in_slice_features = 15, out_features=6, plane_features=64, dropout=self.drop_out)
 
         # MEDIUM 
         # self.pool4mlp = Pool4MLP(pool_feature=30, pool_slices=15)
@@ -289,10 +289,10 @@ class Flow_SNet_multi(nn.Module):
             ONE_LAYER_ONLY = False
             TWO_LAYER_ONLY = False
             THREE_LAYER_ONLY = False
-            OT_FALSE = True
+            OT_FALSE = False
             AFFINE_LOSS = False
             SLICE_LOSS = False
-            MULTI_SCALE_LOSS = True
+            MULTI_SCALE_LOSS = False
             MULTI_SCALE_LOSS_REAL = False
             all_scales = False
             MIDDLE_PROJECT_ONLY = True

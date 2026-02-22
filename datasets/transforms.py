@@ -233,15 +233,15 @@ class GenerateMotionTrajectory:
         # # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0, translations), rotations=Normal(0, rotations/2),
         #                                              bulk_translations=bulk_translations, bulk_rotations=(negate_list(bulk_rotations_list[s]), bulk_rotations_list[s]), shears=0, zooms=0) for s in self.slice]
         # RAND BULK ROT 180
-        self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0, translations), rotations=Normal(0, rotations/2),bulk_translations=bulk_translations, bulk_rotations=(negate_list(bulk_rotations_list[s]), bulk_rotations_list[s]), shears=0, zooms=0, rand_rot_bulk180=True) for s in self.slice]
+        # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0, translations), rotations=Normal(0, rotations/2),bulk_translations=bulk_translations, bulk_rotations=(negate_list(bulk_rotations_list[s]), bulk_rotations_list[s]), shears=0, zooms=0, rand_rot_bulk180=True) for s in self.slice]
 
         # pdb.set_trace()
         # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, translations=Normal(0, translations), rotations=Normal(0, rotations/2),
         #                                              bulk_translations=bulk_translations, bulk_rotations=(bulk_rotations_list_1[s], bulk_rotations_list_2[s]), shears=0, zooms=0) for s in self.slice]
 
         # sample trajectories!
-        # self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, trajectory_mode=True,trajectory_path='/data/vision/polina/users/mfirenze/SVoRT/dataset/traj.npy',
-        #                                              bulk_rotations=(negate_list(bulk_rotations_list[s]), bulk_rotations_list[s]), shears=0, zooms=0,  trajectory_time_step=(1,2),trajectory_relative=True) for s in self.slice]
+        self.base = [cc.RandomSlicewiseAffineTransform(nodes=nodes, shots=shots, spacing=spacing, subsample=subsample, slice=s, trajectory_mode=True,trajectory_path='/data/vision/polina/users/mfirenze/SVoRT/dataset/traj.npy',
+                                                     bulk_rotations=(negate_list(bulk_rotations_list[s]), bulk_rotations_list[s]), shears=0, zooms=0,  trajectory_time_step=(1,2),trajectory_relative=True) for s in self.slice]
 
         # SPECIFY AUGMENTATIONS
         prob_aug = 0.3

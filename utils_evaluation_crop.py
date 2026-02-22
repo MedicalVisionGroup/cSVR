@@ -32,7 +32,7 @@ import models.losses
 import cornucopia as cc
 #get_ipython().run_line_magic('matplotlib', 'inline')
 
-from datasets.transforms import BoundingBox3d
+#from datasets.transforms import BoundingBox3d
 from pytorch_lightning import seed_everything
 
 import cornucopia 
@@ -96,7 +96,8 @@ def run_model(full_path, img_num, gt, save_gt, folder_save="", subsample=1, hres
         
         save_mask = save_gt[0:-7]+"_mask.nii.gz"
         save_brain = save_gt[0:-7]+"_brain.nii.gz"
-        nii_image = nib.Nifti1Image(true_scaled[0].detach().cpu().numpy(),matrix)  
+        os.makedirs(os.path.dirname(save_brain), exist_ok=True)
+        nii_image = nib.Nifti1Image(true_scaled[0].detach().cpu().numpy(),matrix)
         nib.save(nii_image , save_brain)
 
        # binary_mask = (true_mask[0] > 0).to(dtype=true_mask.dtype) 
@@ -118,7 +119,7 @@ def run_model(full_path, img_num, gt, save_gt, folder_save="", subsample=1, hres
             slice_size =  int(slice_size / 2)
     
  
-    trainee.load_state_dict(torch.load(path.join(full_path,'last.ckpt'))['state_dict'])
+    trainee.load_state_dict(torch.load(path.join(full_path,'last-v1.ckpt'))['state_dict'])
     model = trainee.model.cuda()
     with torch.no_grad():
         if(not gt or clin):
@@ -192,6 +193,8 @@ def run_model(full_path, img_num, gt, save_gt, folder_save="", subsample=1, hres
                     stack = model((item[0][0][None], item[0][1]))
                     torch.cuda.synchronize() 
                     end = time.time()
+
+                    
                     print("POSE ESTIMATION:{:.3f}".format(end - start))
             else:
 
@@ -249,7 +252,7 @@ def project_and_save(stack, item, folder_save, img_num, model, hres, gt, clin=Fa
 
         print("ALL STACKS!")
         print(ALL_STACKS)
-        save_splat = True
+        save_splat = False
 
         if ((hres or gt) or clin==True):
             
@@ -402,6 +405,7 @@ def project_and_save(stack, item, folder_save, img_num, model, hres, gt, clin=Fa
 
         REORIENT = False
         if(REORIENT):
+            stack_end = ["sag","cor","axi"]
             for stack in [stack1, stack2, stack3]:
 
                 affine = np.diag([*voxel_size, 1])
@@ -457,8 +461,6 @@ def project_and_save(stack, item, folder_save, img_num, model, hres, gt, clin=Fa
                 T1[0:3, 3] = I1 @ T1c 
 
                 perm = np.eye(4)
-
-
                 perm[0:3, 0:3] = R_xz_swap
     
 
@@ -469,7 +471,7 @@ def project_and_save(stack, item, folder_save, img_num, model, hres, gt, clin=Fa
             #   nifti_img = nib.Nifti1Image(stack[0,0].detach().cpu().numpy().transpose(1,2,0), affine)
                 nifti_img = nib.Nifti1Image(stack[0,0].detach().cpu().numpy().transpose(2,1,0), perm @ T1)
             #  nifti_img = nib.Nifti1Image(stack[0,0].detach().cpu().numpy(), affine)
-                nib.save(nifti_img, '%s/%s_stack%d.nii.gz' % (folder_save, img_num, stack_num ))
+                nib.save(nifti_img, '%s/%s_stack%d_%s.nii.gz' % (folder_save, img_num,stack_num, stack_end[stack_num]))
 
             #  nifti_img = nib.Nifti1Image(stack[0,1].detach().cpu().numpy().transpose(1,2,0), affine)
             #    nifti_img = nib.Nifti1Image(stack[0,1].detach().cpu().numpy().transpose(2,1,0), perm @ T1)
@@ -478,7 +480,7 @@ def project_and_save(stack, item, folder_save, img_num, model, hres, gt, clin=Fa
                # nifti_img = nib.Nifti1Image(np.ones_like(stack[0,1].detach().cpu().numpy()).transpose(2,1,0), perm @ T1)
                 nifti_img = nib.Nifti1Image(stack[0,1].detach().cpu().numpy().transpose(2,1,0), perm @ T1)
             #  nifti_img = nib.Nifti1Image(stack[0,1].detach().cpu().numpy(), affine)
-                nib.save(nifti_img, '%s/%s_stack%d_mask.nii.gz' % (folder_save, img_num, stack_num ))
+                nib.save(nifti_img, '%s/%s_stack%d_mask_%s.nii.gz' % (folder_save, img_num,stack_num, stack_end[stack_num]))
                 stack_num+=1
         else:
             for stack in [stack1, stack2, stack3]:
@@ -487,10 +489,10 @@ def project_and_save(stack, item, folder_save, img_num, model, hres, gt, clin=Fa
                 affine = np.diag([*voxel_size, 1])  # Identity affine with voxel spacing
 
                 nifti_img = nib.Nifti1Image(stack[0,0,:,:,:].detach().cpu().numpy().transpose(1,2,0), affine)
-                nib.save(nifti_img, '%s/%s_stack%d.nii.gz' % (folder_save, img_num,stack_num ))
+                nib.save(nifti_img, '%s/%s_stack%d_%s.nii.gz' % (folder_save, img_num,stack_num, stack_end[stack_num]))
 
                 nifti_img = nib.Nifti1Image(stack[0,1,:,:,:].detach().cpu().numpy().transpose(1,2,0), affine)
-                nib.save(nifti_img, '%s/%s_stack%d_mask.nii.gz' % (folder_save, img_num,stack_num ))
+                nib.save(nifti_img, '%s/%s_stack%d_mask_%s.nii.gz' % (folder_save, img_num,stack_num, stack_end[stack_num]))
                 stack_num+=1
 
 

@@ -76,6 +76,7 @@ def main():
         ckpt_path_mlp = "feta3d0_mlp_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_MLP_classification_multihot_order_40_0.03_0.1_12_12_lr0.0001__MLP_only_order_eps0"
 
         ckpt_path_recon = "feta3d0_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_multi_crop_l22_loss_grid_multiscale_40_0.03_0.1_180_12_lr0.0001_feb17_node5_repeat_180_in_plane"
+        ckpt_path_recon = "feta3d0_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_multi_crop_l22_loss_grid_multiscale_40_0.03_0.1_180_12_lr0.0001__feb18_multiscale_traj"
        # ckpt_path_recon = "feta3d0_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_multi_crop_l22_loss_grid_multiscale_40_0.03_0.1_70_12_lr0.0001__feb18_multiscale_traj"
         
         trainee = models.segment(model=models.flow_SNet3d2_512_multi_crop())
@@ -89,7 +90,7 @@ def main():
         start = time.time()
         #trainee.load_state_dict(torch.load(path.join(root_path_new, ckpt_path_recon, 'last.ckpt'),map_location='cuda')['state_dict'])
 
-        trainee.load_state_dict(torch.load(path.join(root_path_new, ckpt_path_recon, 'last-v1.ckpt'),map_location='cuda')['state_dict'])
+        trainee.load_state_dict(torch.load(path.join(root_path_new, ckpt_path_recon, 'last.ckpt'),map_location='cuda')['state_dict'])
        # trainee.load_state_dict(torch.load(path.join('./model_checkpoints', 'UNet_last.ckpt'),map_location='cuda')['state_dict'])
 
         end = time.time()
