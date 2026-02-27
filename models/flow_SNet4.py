@@ -304,7 +304,9 @@ class Flow_SNet_multi(nn.Module):
             # True for last run
          
             SAVE_INTER = False
-            STOP_LAYER = 0
+            STOP_LAYER = 4
+            if(SAVE_INTER):
+                print("SAVE INTERMEDIATE RESULTS, STOP LAYER", STOP_LAYER)
        
             # CHANGE NUMBER OF LAYERS
             all_flows = []
@@ -362,7 +364,8 @@ class Flow_SNet_multi(nn.Module):
                     splat = splat[:,:-1] / splat[:,-1:].detach().flatten(2).max(axis=2)[0][...,None,None,None].expand(splat[:,:-1].shape) # normalize #splat[:,-1:].max().item() 
 
                 # SAVE INPUT FOR DEBUGGING PURPOSES
-                if(SAVE_INTER and x_ratio==16 and u==STOP_LAYER): 
+                if(SAVE_INTER and x_ratio==16 and u==STOP_LAYER and False==True): 
+                    print("HERE!")
                     return self.save_inter_debug(x, flow, flow_dim, x_ratio, ALL_STACKS, psf, 'aff_init_img2_v1_B_my_model.pth', 'splat_init_img2_v1_B_my_model_aug12.nii.gz')
                     
 
@@ -457,7 +460,8 @@ class Flow_SNet_multi(nn.Module):
 
 
                 if(SAVE_INTER and u==STOP_LAYER):
-                     return self.save_inter_debug(x, flow, flow_dim, x_ratio, ALL_STACKS, psf, f'aff_{x_ratio}_img2_v1_B.pth', f'splat_{x_ratio}_img2_v1_B__aug12.nii.gz')
+                    print("HERE 2!")
+                    return self.save_inter_debug(x, flow, flow_dim, x_ratio, ALL_STACKS, psf, f'aff_{x_ratio}_img2_v1_B.pth', f'splat_{x_ratio}_img2_v1_B__aug12.nii.gz')
               #  pdb.set_trace()
 
             if(self.rigid == False): #  if(v9 and self.rigid == False and ortho3==True):

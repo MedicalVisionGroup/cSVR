@@ -9,9 +9,9 @@ Usage:
     python get_masks.py --input-dir [directorie/sub] --output-stack-masks [directorie/sub]
     python run_pipeline_cSVR.py [directories] --suffix [suffix] --output-dir [dir] --run-cSVR
 """
-# python run_pipeline_cSVR.py /data/vision/polina/users/mfirenze/clin_data_processed_svr/MAP-C581 --suffix jan15pls --output-dir /data/vision/polina/users/mfirenze/clin_data_processed_svr/MAP-C581/cSVR_files --run-cSVR --gd-recon 
+# python run_pipeline_cSVR.py /data/vision/polina/users/mfirenze/clin_data_processed_svr/MAP-C581 --suffix feb24 --run-cSVR --gd-recon --dest-folder /data/vision/polina/users/mfirenze/clin_data_processed_svr/MAP-C581/cSVR_files_test
 
-# python run_pipeline_cSVR.py /data/vision/polina/users/mfirenze/clin_data_processed_svr/MAP-C581 --suffix jan15pls --output-dir /data/vision/polina/users/mfirenze/clin_data_processed_svr/MAP-C581/cSVR_files --run-cSVR --gd-recon 
+# python run_pipeline_cSVR.py /data/vision/polina/users/mfirenze/clin_data_processed_svr/MAP-C581 --suffix feb25_test --dest-folder /data/vision/polina/users/mfirenze/clin_data_processed_svr/MAP-C581/cSVR_files_test --run-cSVR --gd-recon 
 #  nesvor svr --input-slice saved_slices --output-volume saved_slices_svr2.nii.gz  --no-global-exclusion --n-iter 5 --n-iter-rec 3  --gd-recon
 import argparse
 import os
@@ -21,7 +21,7 @@ import pdb
 import warnings
 
 # Local imports
-from nifti_utils import standerdize_stack
+from nifti_utils import standerdize_stack, standerdize_stack_synth
 import torch
 import run_cSVR_fast
 import inr_recon
@@ -44,9 +44,11 @@ def main():
     parser.add_argument("--inr-recon", action="store_true", help="Run inr_recon.py on the output slices.")
     parser.add_argument("--save-slices", action="store_true", help="Run slice saver in cSVR.")
     parser.add_argument("--clin", action="store_true", help="Clin spacing flag for slice_saver.")
+    parser.add_argument("--synth", action="store_true", help="Synth data flag passed to standerdize_stack.")
     parser.add_argument("--save-folder", default=None, help="Directory to save output slices.")
     parser.add_argument("--gd-recon", action="store_true", help="Run gd_recon.py on the output slices.")
     parser.add_argument("--output-volume", default=None, help="Directory to save output volume (if different from output-dir).")
+    parser.add_argument("--dest-folder", default=None, help="Folder name (relative to subject dir) to save reconstruction outputs instead of cSVR_files.")
     
     args = parser.parse_args()
 
@@ -75,8 +77,12 @@ def main():
         ckpt_path_mlp = "feta3d0_mlp_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_MLP_classification_multihot_order_40_0.03_0.1_12_12_lr0.0001__MLP_only_order"
         ckpt_path_mlp = "feta3d0_mlp_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_MLP_classification_multihot_order_40_0.03_0.1_12_12_lr0.0001__MLP_only_order_eps0"
 
-        ckpt_path_recon = "feta3d0_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_multi_crop_l22_loss_grid_multiscale_40_0.03_0.1_180_12_lr0.0001_feb17_node5_repeat_180_in_plane"
         ckpt_path_recon = "feta3d0_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_multi_crop_l22_loss_grid_multiscale_40_0.03_0.1_180_12_lr0.0001__feb18_multiscale_traj"
+        ckpt_path_recon = "feta3d0_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_multi_crop_l22_loss_grid_multiscale_40_0.03_0.1_180_12_lr0.0001_feb17_node5_repeat_180_in_plane"
+       # ckpt_path_recon = "feta3d0_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_multi_crop_l22_loss_grid_multiscale_40_0.03_0.1_180_12_lr0.0001__feb18_multiscale_traj"
+       # ckpt_path_recon = "feta3d0_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_multi_crop_l22_loss_grid_multiscale_40_0.03_0.1_180_12_lr0.0001_feb17_node5_repeat_180_in_plane_svort_augs_rep_feb21_no_slice_param"
+       # ckpt_path_recon ="feta3d0_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_multi_crop_l22_loss_grid_multiscale_40_0.03_0.1_180_12_lr0.0001_feb21_node5_bulk180_stack_order"
+       # ckpt_path_recon = "feta3d0_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_multi_crop_l22_loss_grid_40_0.03_0.1_180_12_lr0.0001_feb17_node5_repeat_180_in_plane_l2"
        # ckpt_path_recon = "feta3d0_multi_stack_svr_final_sb2_crop_flow_SNet3d2_1024_multi_crop_l22_loss_grid_multiscale_40_0.03_0.1_70_12_lr0.0001__feb18_multiscale_traj"
         
         trainee = models.segment(model=models.flow_SNet3d2_512_multi_crop())
@@ -90,7 +96,7 @@ def main():
         start = time.time()
         #trainee.load_state_dict(torch.load(path.join(root_path_new, ckpt_path_recon, 'last.ckpt'),map_location='cuda')['state_dict'])
 
-        trainee.load_state_dict(torch.load(path.join(root_path_new, ckpt_path_recon, 'last.ckpt'),map_location='cuda')['state_dict'])
+        trainee.load_state_dict(torch.load(path.join(root_path_new, ckpt_path_recon, 'last-v1.ckpt'),map_location='cuda')['state_dict'])
        # trainee.load_state_dict(torch.load(path.join('./model_checkpoints', 'UNet_last.ckpt'),map_location='cuda')['state_dict'])
 
         end = time.time()
@@ -125,16 +131,22 @@ def main():
         try:
             print(f"Processing {directory} with suffix '{args.suffix}'...")
             
-            effective_output_dir =  os.path.join(directory, "cSVR_files")
-            if(args.inr_recon):
-                effective_output_dir =  os.path.join(directory, "cSVR_files_inr")
+            if args.dest_folder:
+                effective_output_dir = os.path.join(directory, args.dest_folder)
+            elif args.inr_recon:
+                effective_output_dir = os.path.join(directory, "cSVR_files_inr")
+            else:
+                effective_output_dir = os.path.join(directory, "cSVR_files")
             os.makedirs(effective_output_dir, exist_ok=True)
 
 
             # Standardize the stack
             # Capture the returned tensors: out_stack (init_stacks), combined_cropped (input tensor)
-            init_stacks_tensor, input_tensor, slice_res = standerdize_stack(directory, suffix=args.suffix, output_dir=effective_output_dir)
-            
+            init_stacks_tensor, input_tensor, slice_res = standerdize_stack(directory, suffix=args.suffix, output_dir=effective_output_dir, synth=args.synth)
+            if(args.synth):
+                init_stacks_tensor_hres, input_tensor_hres, slice_res_hres = standerdize_stack_synth(directory, suffix=args.suffix, output_dir=effective_output_dir,synth=args.synth)
+                print("INPUT TENSOR SHAPE")
+                print(input_tensor_hres.shape)
             print(f"Finished processing {directory}")
             
             # Run cSVR if requested
@@ -154,6 +166,7 @@ def main():
                     input_template=None,      # Not used if tensor provided
                     save_slices=True,
                     clin=args.clin,
+                    synth=args.synth,
                     save_folder=save_folder_path,
                     slice_res = slice_res,
                     suffix=args.suffix
@@ -162,12 +175,13 @@ def main():
                 try:
                     # Pass the pre-loaded models to the fast inference function
                     run_cSVR_fast.run_svr_inference(
-                        model=model, 
-                        model_mlp=model_mlp, 
-                        args=cSVR_args, 
-                        init_stacks_input=init_stacks_tensor, 
-                        downsampled_input_tensor=input_tensor, 
-                        output_dir=directory
+                        model=model,
+                        model_mlp=model_mlp,
+                        args=cSVR_args,
+                        init_stacks_input=init_stacks_tensor,
+                        downsampled_input_tensor=input_tensor,
+                        output_dir=directory,
+                        downsampled_input_tensor_hres=input_tensor_hres if args.synth else None
                     )
                     print(f"Finished running cSVR on {folder_name}")
                 except Exception as e:

@@ -148,10 +148,12 @@ class RandomRicianNoiseTransform:
 
 
 class GenerateMotionTrajectory:
-    def __init__(self, spacing=1, subsample=1, translations=0.03, rotations=40, bulk_translations=0, bulk_rotations_plane=0, bulk_rotations_tr_plane=0, zooms=(-0.35,-0.2), slice=1, nodes=(1,5), shots=2, augment=False, noise=0, X=3, flow_final=False, crop=False, normalize_img=True, mlp_training=False, verbose=True, **kwargs):
+    def __init__(self, spacing=1, subsample=1, translations=0.03, rotations=40, bulk_translations=0, bulk_rotations_plane=0, bulk_rotations_tr_plane=0, zooms=0, slice=1, nodes=(1,5), shots=2, augment=False, noise=0, X=3, flow_final=False, crop=False, normalize_img=True, mlp_training=False, verbose=True, **kwargs):
 
         # DEFINE MOTION PARAMETERS
         self.verbose = verbose
+        self.verbose = True
+        
         if self.verbose:
             print("MOTION PARAMS:")
             print(f"spacing: {spacing}")
@@ -421,8 +423,11 @@ class GenerateMotionTrajectory:
         img0[:1] = self.rician_noise(img0[:1]) if self.rician_noise_apply else img0[:1]
 
         # GENERATE ORTHOGONAL FLOW (zero residual)
+        in_training = False
+        print("residual flow")
         flow_ot = self.generate_initial_flow(flow[None][:,1:4])
-        flow_ot = torch.zeros_like(flow_ot)
+        if in_training:
+            flow_ot = torch.zeros_like(flow_ot)
 
         # MAKE TOTAL FLOW: motion flow + orthogonal residual
         new_flow = torch.zeros_like(flow).to(flow.device)

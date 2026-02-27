@@ -2,6 +2,7 @@ import os
 import gc
 import math
 import os.path as path
+from xml.parsers.expat import model
 import torch 
 import os
 torch.cuda.synchronize()
@@ -37,7 +38,7 @@ import slice_saver
 import argparse
 
 
-def run_svr_inference(model, model_mlp, args=None, init_stacks_input=None, downsampled_input_tensor=None, output_dir=None):
+def run_svr_inference(model, model_mlp, args=None, init_stacks_input=None, downsampled_input_tensor=None, output_dir=None, downsampled_input_tensor_hres=None):
     # SET RUNNING PARAMETERS
     seed_num = 1 #2
     seed_everything(seed_num, workers=True)
@@ -244,7 +245,17 @@ def run_svr_inference(model, model_mlp, args=None, init_stacks_input=None, downs
 
                 # Need to ensure dimensions match for concatenation.
                 # Assuming ALL_STACKS and aff4 are compatible (N, 4, 4).
+                # motion_2_3, aff4 = model.project_new_feb4_crop(stack[:,0:3],downsampled_input2[:,1:], ALL_STACKS, slice_in=0, spacing=1, shape=[stack.shape[2],slice_size,slice_size])
+                # motion_2_3, aff_all = model.project_new_feb4_crop(stack[:,0:3],item[0][0][None,:,:,::2,::2][:,1:], ALL_STACKS, slice_in=0, spacing=1, shape=[item[0][0].shape[1],item[0][0].shape[2],item[0][0].shape[3]])
+                # aff4[:,0:3,3] = aff4[:,0:3,3]*2
+                # ALL_STACKS[:,0:3,3] = ALL_STACKS[:,0:3,3]*2
 
+
+                if(args.synth):
+                    ALL_STACKS[:,0:3,3] = ALL_STACKS[:,0:3,3]*2
+                    aff4[:,0:3,3] = aff4[:,0:3,3]*2
+                    print("multiplied affs")
+                    print(aff4.shape, ALL_STACKS.shape)
                 affs = torch.cat([ALL_STACKS.unsqueeze(0), aff4.unsqueeze(0)], dim=0)
 
                 # downsampled_input shape: (1, 1, H, W, D) ?
@@ -266,7 +277,9 @@ def run_svr_inference(model, model_mlp, args=None, init_stacks_input=None, downs
                     os.makedirs(current_output_dir, exist_ok=True)
 
         
-                slice_saver.save_slices(downsampled_input2, affs,args.save_folder, current_output_dir,  args.clin, imgnum, args.slice_res)
+                print("Is hres input provided?", downsampled_input_tensor_hres is not None)
+                imgs_for_saver = downsampled_input_tensor_hres.cuda() if downsampled_input_tensor_hres is not None else downsampled_input2
+                slice_saver.save_slices(imgs_for_saver, affs,args.save_folder, current_output_dir,  args.clin, imgnum, args.slice_res)
                 print("slice_saver done.")
 
 def main(args=None, init_stacks_input=None, downsampled_input_tensor=None, output_dir=None):
