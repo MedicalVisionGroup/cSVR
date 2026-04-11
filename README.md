@@ -4,9 +4,10 @@
 
 <p>Paper: <a href="https://arxiv.org/html/2601.07519v1" target="_blank">https://arxiv.org/html/2601.07519v1</a></p>
 
+<strong>Currently built for 3 stacks and resolution ~1.3 mm in plane with ~3 mm thickness — extension coming soon!</strong>
+
 <h2>Pre-requisites</h2>
 
-Currently buit for 3 stacks and resolution ~1.3mm ~3mm thickness, extension coming soon!
 
 <p>All pre-requisites are listed in <code>cSVR_env_v1.yaml</code>. The model checkpoints are located here
 <a href="https://drive.google.com/drive/folders/14lG-uKZLcrR_jPe-SXfNCmOJfhzCV7mQ?usp=sharing" target="_blank">Google Drive</a>.</p>. 
