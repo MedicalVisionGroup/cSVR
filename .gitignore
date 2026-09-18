@@ -1,0 +1,23 @@
+.*
+!.gitignore
+!.github/
+!.python-version
+
+# common junk
+.DS_Store
+__pycache__/
+*.pyc
+
+# model weights: downloaded separately, see README.md "Checkpoints"
+model_checkpoints/*
+!model_checkpoints/README.md
+nesvor_local/checkpoints/*
+!nesvor_local/checkpoints/README.md
+
+# run artifacts
+train_outs/*
+!train_outs/README.md
+checkpoints/
+wandb/
+evaluate_metrics/*
+!evaluate_metrics/README.md

@@ -1,0 +1,41 @@
+# Config of the v2 stack-ordering MLP: cSVR_MLP.ckpt in the mafirenze/csvr_v2 Hub repo
+# (after 35 epochs = global step 56700, chosen by clinical stack-order accuracy, not by
+# val_loss). Same as feb16_mlp_only_rots_eps0.yaml (the csvr_v1 MLP) except for
+# bulk_rotations_tr_plane 12 -> 20 and the two mask-erosion keys at the bottom.
+#
+# NOT runnable with this branch's training code: mask_erode / mask_cut_max are
+# implemented only on the feb17_mlp_recreate branch (commit 9126481, the February
+# training code this model was trained with); here they would be swallowed silently
+# by **kwargs. See experiments/README.md.
+trainee: "segment"
+dataset: "feta3d0_mlp_multi_stack_svr_final_sb2_crop"
+rotations: 40
+translations: 0.03
+noise: 0.1
+bulk_rotations_plane: 180
+bulk_rotations_tr_plane: 20
+batch_size: 1
+valid_batch_size: 1
+loss: "classification_multihot_order"
+train_metrics: ["MLP_CorrectVec"]
+valid_metrics: ["MLP_CorrectVec"]
+tests_metrics: ["MLP_CorrectVec"]
+network: "flow_SNet3d2_1024_MLP"
+max_steps: 250000
+limit_train_batches: 20000
+optimizer: "adam"
+lr_start: 0.0001
+momentum: 0.9
+decay: 0.0
+schedule: "poly"
+val_check_interval: 1.0
+monitor: "val_loss"
+monitor_mode: "min"
+seed: 1
+train: True
+results_dir: "../results"
+remarks_add: "_MLP_only_order_eps0_recreate_merode_tr20"
+drop_out: 0.0
+# EXP 2: mask erosion degradation (port of Sep merode, main repo 469e663)
+mask_erode: 0.5        # per-sample probability of erosion (0.0 = off)
+mask_cut_max: 0.35     # max radius = 0.35 x smallest mask extent / 2

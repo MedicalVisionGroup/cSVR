@@ -1,0 +1,85 @@
+[project]
+name = "csvr"
+version = "0.1.0"
+description = "Fast multi-stack slice-to-volume reconstruction via multi-scale unrolled optimization"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    # PyTorch stack — the 2.0.1 PyPI wheels bundle CUDA 11.7 + cuDNN 8.5,
+    # the same runtime as the conda cSVR_env_v5 environment (the one the
+    # SLURM job scripts use, and that produced the evaluate_metrics JSONs).
+    "torch==2.0.1",
+    "torchvision==0.15.2",
+    "torchaudio==2.0.2",
+    "pytorch-lightning==2.1.0",
+    "torchmetrics==1.7.2",
+    # numerics / imaging
+    "numpy==1.26.4",
+    "scipy==1.13.0",
+    "pandas==2.3.3",
+    "scikit-image==0.23.2",
+    "scikit-learn==1.8.0",
+    "pillow==10.3.0",
+    "matplotlib==3.10.0",
+    # medical imaging
+    "nibabel==5.2.1",
+    "nilearn==0.13.0",
+    "simpleitk==2.3.1",
+    # MONAIfbs masking needs DynUNet; brain_segmentation.py handles the
+    # affine-instance-norm difference between monai 0.3.x and >=1.x.
+    "monai==1.3.1",
+    # balbasty packages. cornucopia itself is vendored in ./cornucopia (see README);
+    # these are its runtime dependencies.
+    "torch-interpol==0.2.6",
+    "torch-distmap==0.2.0",
+    # misc
+    "ninja>=1.11",       # torch JIT-compiles nesvor_local's CUDA extensions
+    "pyyaml>=6.0",
+    "requests>=2.31",
+    "tqdm>=4.66",
+]
+
+[dependency-groups]
+# installed by default with `uv sync`
+dev = [
+    "ipython",
+    "ipywidgets",
+]
+# only needed for training scripts (train_from_bulk_wdb_yaml.py):
+#   uv sync --group train
+# NOTE: this covers wandb for local inspection only. The training script itself needs
+# pytorch-lightning 1.9 (this environment pins 2.1.0) -- see experiments/README.md.
+train = [
+    "wandb",
+]
+# tinycudann has no PyPI wheels and needs a CUDA 11.7 toolkit (nvcc) to build,
+# so it is opt-in:
+#   TCNN_CUDA_ARCHITECTURES="75;86" CUDA_HOME=$PWD/.cuda_home uv sync --group tcnn
+# TCNN_CUDA_ARCHITECTURES matters: without it setup.py builds only for the GPU
+# present at build time, and the binding then fails to import on other cards
+# (nesvor_local silently falls back to the pure-PyTorch INR). 75 covers the
+# RTX 2080 Ti / RTX 5000 nodes, 86 the A6000 nodes (and, by binary
+# compatibility, the sm_89 RTX 6000 Ada / L40S nodes). nvcc 11.7 cannot
+# target sm_89/sm_90 directly. tiny-cuda-nn 2.0 links -lnvrtc, so
+# $CUDA_HOME/lib64/libnvrtc.so must resolve (not just libnvrtc.so.11.2).
+# Plain `uv sync` removes tinycudann again (`uv run` does not).
+tcnn = [
+    "tinycudann",
+]
+
+[tool.uv]
+# This repo is a collection of scripts, not an installable package;
+# uv only manages the environment.
+package = false
+# tinycudann's setup.py imports torch, so it must build against this env
+no-build-isolation-package = ["tinycudann"]
+
+[tool.uv.sources]
+# same commit cSVR_env_v5 was built from (tinycudann 2.0; see its direct_url.json)
+tinycudann = { git = "https://github.com/NVlabs/tiny-cuda-nn", rev = "2e757bbe781db59c4980d389d7dccbf5edc09669", subdirectory = "bindings/torch" }
+
+# let uv lock without having to build tinycudann first
+[[tool.uv.dependency-metadata]]
+name = "tinycudann"
+version = "2.0"
+requires-dist = []

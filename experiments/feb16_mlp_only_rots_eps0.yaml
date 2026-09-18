@@ -1,0 +1,34 @@
+trainee: "segment"
+dataset: "feta3d0_mlp_multi_stack_svr_final_sb2_crop"
+rotations: 40
+translations: 0.03
+noise: 0.1
+# Config of the first release's MLP (cSVR_MLP.ckpt in mafirenze/csvr_v1). Its run
+# directory is named ..._40_0.03_0.1_12_12_lr0.0001__MLP_only_order_eps0, but the
+# February training script wrote bulk_rotations_tr_plane into BOTH name fields, so the
+# run really used bulk_rotations_plane 180 / bulk_rotations_tr_plane 12 (confirmed by
+# re-training with these values, which reproduced the released model's behavior).
+bulk_rotations_plane: 180
+bulk_rotations_tr_plane: 12
+batch_size: 1
+valid_batch_size: 1
+loss: "classification_multihot_order"
+train_metrics: ["MLP_CorrectVec"]
+valid_metrics: ["MLP_CorrectVec"]
+tests_metrics: ["MLP_CorrectVec"]
+network: "flow_SNet3d2_1024_MLP"
+max_steps: 250000
+limit_train_batches: 20000
+optimizer: "adam"
+lr_start: 0.0001
+momentum: 0.9
+decay: 0.0
+schedule: "poly"
+val_check_interval: 1.0
+monitor: "val_loss"
+monitor_mode: "min"
+seed: 1
+train: True
+results_dir: "../results"
+remarks_add: "_MLP_only_order_eps0"
+drop_out: 0.0
