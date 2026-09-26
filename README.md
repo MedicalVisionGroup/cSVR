@@ -281,4 +281,5 @@ GitHub: https://github.com/MedicalVisionGroup/cSVR/issues. Include the command y
 the full log (the `ORDER REVERSE` / `STACK ORDER` lines in particular), your GPU and
 the output of `python -c "import torch; print(torch.__version__)"`.
 
-Questions, extensions or applications: feel free to reach out by e-mail.
+Questions, extensions or applications: feel free to reach out by e-mail at
+mfirenze@csail.mit.edu.
