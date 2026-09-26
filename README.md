@@ -274,6 +274,11 @@ kernels. In serve mode this start-up cost is paid once for all subjects.
   with local modifications to `geometric.py` and `utils/warps.py`.
 - The INR encoding uses [tiny-cuda-nn](https://github.com/NVlabs/tiny-cuda-nn).
 
-## Contact
+## Bugs and questions
+
+Found a bug or something that does not run as described? Please open an issue on
+GitHub: https://github.com/MedicalVisionGroup/cSVR/issues. Include the command you ran,
+the full log (the `ORDER REVERSE` / `STACK ORDER` lines in particular), your GPU and
+the output of `python -c "import torch; print(torch.__version__)"`.
 
 Questions, extensions or applications: feel free to reach out by e-mail.
