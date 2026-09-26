@@ -86,14 +86,41 @@ sub01/
 └── 0009_T2_HASTE.nii.gz
 ```
 
-An ordering MLP decides which stack is which and whether each has to be rotated 180°
-in-plane; the pipeline re-orients and re-orders the stacks accordingly. Each subject's log
-records the decision, per input stack in sorted-filename order:
+### Which stack is which: MLP (default) or filename suffixes
+
+The pose network expects the stacks in the order sagittal, coronal, axial, each in a
+canonical in-plane orientation. There are two ways to get there:
+
+**Default — let the ordering MLP decide.** A small classifier looks at the three stacks
+and predicts (a) which one is sagittal / coronal / axial and (b) whether each has to be
+rotated 180° in-plane. The pipeline re-orders and re-orients the stacks accordingly, so
+the filenames can be anything and the scanner export above works as it is. Each
+subject's log records the decision, per input stack in sorted-filename order:
 
 ```
 ORDER REVERSE: [1, 0, 1]    # 1 = rotated 180° in-plane
 STACK ORDER: [2, 0, 1]      # 0 = sagittal, 1 = coronal, 2 = axial
 ```
+
+**`--no-mlp` — trust the filenames.** Name the stacks with an orientation suffix right
+before the extension, `_sag`, `_cor` and `_axi`:
+
+```
+sub01/
+├── 0005_T2_HASTE_sag.nii.gz
+├── 0007_T2_HASTE_cor.nii.gz
+└── 0009_T2_HASTE_axi.nii.gz
+```
+
+and add `--no-mlp` to the command. The stacks are then taken as (sag, cor, axi) from
+the suffixes; without suffixes, sorted-filename order is used and must already be
+sagittal, coronal, axial. Note that in this mode the 180° in-plane flip is not predicted
+either: the stacks are used exactly as stored. If a stack is upside down relative to what
+the network was trained on, the pose estimate degrades, so the MLP default is
+recommended whenever you are not sure about the in-plane orientation.
+
+Suffixes are also useful with the MLP: when a directory holds more than three stacks,
+the `_sag` / `_cor` / `_axi` files are the ones picked.
 
 Rules:
 
@@ -103,8 +130,8 @@ Rules:
 - If the three stacks have an odd total number of brain-containing slices, the last slice
   of the third stack in sorted-filename order is dropped.
 - Orientation suffixes (`_sag` / `_cor` / `_axi` before the extension) are optional. They
-  are only used to pick three stacks from a directory that holds more, by `--no-mlp`, and
-  by the legacy input without `--preprocess`.
+  are used to pick three stacks from a directory that holds more, by `--no-mlp` (see
+  above), and by the legacy input without `--preprocess`.
 
 With `--preprocess` (recommended) that is all you need: masks, reorientation, N4 bias
 correction and normalization are computed in memory. Without `--preprocess` the pipeline
@@ -192,7 +219,7 @@ Common to both scripts:
 | `--save-slices-to-disk` | Also write the posed slices as one NIfTI per slice into `<dest>/<subject>_slices/`. |
 | `--save-folder D` | Custom directory for those slices. |
 | `--output-volume D` | Directory for the reconstructed volume, if different from `--dest-folder`. |
-| `--no-mlp` | Skip the ordering MLP and trust the filenames: needs `_sag`/`_cor`/`_axi` suffixes (or three files whose sorted order is already sagittal, coronal, axial). The 180° in-plane flip is then not predicted either. |
+| `--no-mlp` | Skip the ordering MLP and trust the filenames: needs `_sag`/`_cor`/`_axi` suffixes (or three files whose sorted order is already sagittal, coronal, axial). The 180° in-plane flip is then not predicted either. See "Which stack is which" under Input data. |
 | `--normalize-mean` | Normalize stacks by mean intensity instead of the second histogram mode. |
 | `--clin` | Clinical slice-spacing flag passed to the slice writer. |
 | `--synth` | Layout of the synthetic-motion benchmark (needs its ground-truth files); not for clinical data. |
