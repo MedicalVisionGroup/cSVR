@@ -413,7 +413,7 @@ def make_parser():
                         help="Write the --preprocess intermediates (*_bias_field.nii.gz, "
                              "*_norm.nii.gz, mask_*.nii.gz) into <dest>/preprocessed for "
                              "debugging.")
-    parser.add_argument("--serve", action="store_true", help="Load models once, then enter interactive loop for repeated runs.")
+    parser.add_argument("--serve", action="store_true", help="Load models once and warm them up, run any directories given on the command line, then enter the interactive loop for further jobs.")
     parser.add_argument("--timing-mode", action="store_true",
                         help="Measure speed without paying for artifacts: skip the standerdize "
                              "*.pt/*.nii.gz dumps, the per-slice cSVR output and the simulated "
@@ -481,16 +481,23 @@ def main():
             file_dirs = [line.strip() for line in f if line.strip() and not line.startswith('#')]
         directories = file_dirs + directories
 
-    # Serve mode: load models once, then interactive loop
+    # Serve mode: load the checkpoints once, warm up on dummy inputs, run any
+    # directories given on the command line, then take further jobs from the prompt.
     if args.serve:
         print("Loading models for server mode...")
         model, model_mlp = load_models(no_mlp=args.no_mlp)
         print("Warming up models on dummy inputs...")
         warmup_models(model, model_mlp)
+        if directories:
+            args.run_cSVR = True
+            start = time.time()
+            for directory in directories:
+                process_directory(directory, args, model, model_mlp)
+            print(f"\nCommand-line job done in {time.time() - start:.2f}s\n")
         serve_loop(model, model_mlp, make_parser())
         return
 
-    # Normal mode: same behavior as original run_pipeline_cSVR.py
+    # Normal mode: same behavior as original run_pipeline_cSVR.py, plus the warm-up
     if not directories:
         parser.error("No directories specified. Provide positional arguments or --dir-list.")
 
@@ -499,6 +506,8 @@ def main():
     if args.run_cSVR:
         print("Loading models once...")
         model, model_mlp = load_models(no_mlp=args.no_mlp)
+        print("Warming up models on dummy inputs...")
+        warmup_models(model, model_mlp)
 
     for directory in directories:
         process_directory(directory, args, model, model_mlp)
