@@ -119,34 +119,13 @@ per stack, paired by the `_axi`/`_sag`/`_cor` suffix (e.g. `sub01_axi.nii.gz` +
 Activate the environment and set `CUDA_HOME` first. All commands run from the repository
 root.
 
-### One subject, one shot
+Two entry points share the same options. Serve mode is the fast one: the start-up
+cost (loading ~13 GB of checkpoints and, on the very first run, JIT-compiling the two
+NeSVoR CUDA kernels) is paid once, and every subject after that takes tens of seconds.
+The one-shot script pays that cost on every invocation, so a single subject takes
+several minutes.
 
-```bash
-python run_pipeline_cSVR.py /data/sub01 \
-    --suffix run1 \
-    --run-cSVR --preprocess --gd-recon \
-    --dest-folder cSVR_run1
-```
-
-This loads the models, preprocesses `sub01`, estimates slice poses, reconstructs with
-gradient descent and writes everything to `/data/sub01/cSVR_run1/`. Several subject
-directories can be given at once, or listed one per line in a file passed with
-`--dir-list subjects.txt`; the models are loaded once for all of them.
-
-Expect the first subject to take several minutes: the checkpoints (~13 GB) have to be
-read from disk and moved to the GPU, and on the very first run the two NeSVoR CUDA
-kernels are JIT-compiled. Once that is done, every further subject in the same process
-takes on the order of 20–30 s. For more than one or two subjects, use serve mode below so
-that this cost is paid once.
-
-| Flag | Back-end |
-|---|---|
-| `--gd-recon` | Gradient-descent SVR (NeSVoR `svr`, 0.8 mm output). Default choice. |
-| `--inr-recon` | Implicit neural representation (NeSVoR `reconstruct`). Uses `tinycudann` when installed. |
-
-Both may be given; each writes its own volume.
-
-### Serve mode (many subjects, models stay loaded)
+### Option 1 — Serve mode (fast)
 
 ```bash
 python run_pipeline_cSVR_serve.py --serve /data/sub01 --suffix run1 --preprocess --gd-recon --dest-folder /data/sub01/cSVR_run1
@@ -154,9 +133,7 @@ python run_pipeline_cSVR_serve.py --serve /data/sub01 --suffix run1 --preprocess
 
 The models are loaded and warmed up once, the subjects given on the command line are
 processed, and then each line typed or piped at the `cSVR>` prompt is a further job with
-the same arguments (`--run-cSVR` is implied). This is the fast way to run cSVR: the
-minutes spent loading the checkpoints and compiling the kernels happen only at start-up,
-and each job after that finishes in tens of seconds.
+the same arguments (`--run-cSVR` is implied). Each job finishes in tens of seconds:
 
 ```
 cSVR> /data/sub01 --suffix run1 --preprocess --gd-recon --dest-folder /data/sub01/cSVR_run1
@@ -173,6 +150,32 @@ echo "/data/sub01 --suffix run1 --preprocess --gd-recon --dest-folder /data/sub0
 
 `run_pipeline_cSVR_serve.py` also works like `run_pipeline_cSVR.py` when called without
 `--serve`, and additionally writes a `<subject>_timings_<suffix>.json` with per-stage times.
+
+### Option 2 — One subject, one shot (slow)
+
+```bash
+python run_pipeline_cSVR.py /data/sub01 \
+    --suffix run1 \
+    --run-cSVR --preprocess --gd-recon \
+    --dest-folder cSVR_run1
+```
+
+This loads the models, preprocesses `sub01`, estimates slice poses, reconstructs with
+gradient descent and writes everything to `/data/sub01/cSVR_run1/`. Expect several
+minutes for the first subject because of the checkpoint load and kernel compilation;
+each further subject in the same process takes 20–30 s. Several subject directories can
+be given at once, or listed one per line in a file passed with `--dir-list subjects.txt`;
+the models are loaded once for all of them. For more than one or two subjects, prefer
+serve mode.
+
+### Reconstruction back-end
+
+| Flag | Back-end |
+|---|---|
+| `--gd-recon` | Gradient-descent SVR (NeSVoR `svr`, 0.8 mm output). Default choice. |
+| `--inr-recon` | Implicit neural representation (NeSVoR `reconstruct`). Uses `tinycudann` when installed. |
+
+Both may be given; each writes its own volume.
 
 ### All options
 
