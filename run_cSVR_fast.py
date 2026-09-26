@@ -161,11 +161,21 @@ def run_svr_inference(model, model_mlp, args=None, init_stacks_input=None, downs
             order_reverse = torch.tensor([int(probs[i, best_perm[i], 1] > probs[i, best_perm[i], 0]) for i in range(3)],
                                          device=stack_pred.device)
 
+            if getattr(args, "no_mlp", False):
+                # --no-mlp: the stacks arrive as (sag, cor, axi) from their filenames, so
+                # input stack i has orientation i. Keep that order and take only the 180°
+                # in-plane decision from the MLP, read off for the known orientation.
+                print(f"--no-mlp: stack order taken from the filenames (sag, cor, axi); "
+                      f"MLP proposal {list(best_perm)} ignored, MLP used for the 180° flips only.")
+                stack_order = torch.tensor([0, 1, 2], device=stack_pred.device)
+                order_reverse = torch.tensor([int(probs[i, i, 1] > probs[i, i, 0]) for i in range(3)],
+                                             device=stack_pred.device)
+
             if(rot_90_pred):
                 rot_pred = stack_mlp[:,6:]
                 rot90_amount = rot_pred.argmax(dim=1)  % 4
         else:
-            print("Skipping MLP, using existing stack order.")
+            print("No MLP model given: identity stack order and default flips.")
             time_mlp = 0.0
             order_reverse = torch.tensor([0, 1, 0], device=stack1.device)  # Default order (no reversal)
             stack_order = torch.tensor([0, 1, 2], device=stack1.device)    # identity permutation

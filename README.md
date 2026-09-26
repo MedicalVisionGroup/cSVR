@@ -102,8 +102,8 @@ ORDER REVERSE: [1, 0, 1]    # 1 = rotated 180° in-plane
 STACK ORDER: [2, 0, 1]      # 0 = sagittal, 1 = coronal, 2 = axial
 ```
 
-**`--no-mlp` — trust the filenames.** Name the stacks with an orientation suffix right
-before the extension, `_sag`, `_cor` and `_axi`:
+**`--no-mlp` — take the order from the filenames.** Name the stacks with an orientation
+suffix right before the extension, `_sag`, `_cor` and `_axi`:
 
 ```
 sub01/
@@ -114,10 +114,9 @@ sub01/
 
 and add `--no-mlp` to the command. The stacks are then taken as (sag, cor, axi) from
 the suffixes; without suffixes, sorted-filename order is used and must already be
-sagittal, coronal, axial. Note that in this mode the 180° in-plane flip is not predicted
-either: the stacks are used exactly as stored. If a stack is upside down relative to what
-the network was trained on, the pose estimate degrades, so the MLP default is
-recommended whenever you are not sure about the in-plane orientation.
+sagittal, coronal, axial. The MLP still runs and still decides the 180° in-plane flip of
+each stack, only its stack-order proposal is ignored (the log prints both, so you can see
+whether they disagreed). Use this when you know the orientations and want them fixed.
 
 Suffixes are also useful with the MLP: when a directory holds more than three stacks,
 the `_sag` / `_cor` / `_axi` files are the ones picked.
@@ -219,7 +218,7 @@ Common to both scripts:
 | `--save-slices-to-disk` | Also write the posed slices as one NIfTI per slice into `<dest>/<subject>_slices/`. |
 | `--save-folder D` | Custom directory for those slices. |
 | `--output-volume D` | Directory for the reconstructed volume, if different from `--dest-folder`. |
-| `--no-mlp` | Skip the ordering MLP and trust the filenames: needs `_sag`/`_cor`/`_axi` suffixes (or three files whose sorted order is already sagittal, coronal, axial). The 180° in-plane flip is then not predicted either. See "Which stack is which" under Input data. |
+| `--no-mlp` | Take the stack order from the filenames: needs `_sag`/`_cor`/`_axi` suffixes (or three files whose sorted order is already sagittal, coronal, axial). The MLP still decides the 180° in-plane flips. See "Which stack is which" under Input data. |
 | `--normalize-mean` | Normalize stacks by mean intensity instead of the second histogram mode. |
 | `--clin` | Clinical slice-spacing flag passed to the slice writer. |
 | `--synth` | Layout of the synthetic-motion benchmark (needs its ground-truth files); not for clinical data. |

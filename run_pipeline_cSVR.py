@@ -50,7 +50,7 @@ def main():
     parser.add_argument("--gd-recon", action="store_true", help="Run gd_recon.py on the output slices.")
     parser.add_argument("--output-volume", default=None, help="Directory to save output volume (if different from output-dir).")
     parser.add_argument("--dest-folder", default=None, help="Folder name (relative to subject dir) to save reconstruction outputs instead of cSVR_files.")
-    parser.add_argument("--no-mlp", action="store_true", help="Skip MLP order prediction and use the stacks as found: (sag, cor, axi) when named with _sag/_cor/_axi suffixes, else sorted filename order, which must then already be sagittal, coronal, axial.")
+    parser.add_argument("--no-mlp", action="store_true", help="Take the stack order from the filenames instead of the MLP: (sag, cor, axi) when named with _sag/_cor/_axi suffixes, else sorted filename order, which must then already be sagittal, coronal, axial. The MLP still decides the 180° in-plane flip of each stack.")
     parser.add_argument("--normalize-mean", action="store_true", help="Normalize stacks by mean instead of second mode.")
     parser.add_argument("--no-trim-odd", action="store_true", help="Keep all slices (don't crop the odd slice from any stack).")
     parser.add_argument("--bias-field-norm", action="store_true", help="Read the N4-corrected *_sag_bias_field/_cor_bias_field/_axi_bias_field stacks instead of the raw _sag/_cor/_axi files.")
@@ -80,7 +80,7 @@ def main():
             path.join(path.dirname(path.abspath(__file__)), "model_checkpoints"))
         svr_ckpt = path.join(ckpt_dir, "cSVR_SVR.ckpt")
         mlp_ckpt = path.join(ckpt_dir, "cSVR_MLP.ckpt")
-        needed = [svr_ckpt] if args.no_mlp else [svr_ckpt, mlp_ckpt]
+        needed = [svr_ckpt, mlp_ckpt]
         missing = [p for p in needed if not path.exists(p)]
         if missing:
             raise SystemExit(
@@ -97,14 +97,15 @@ def main():
         print(f"Loading SVR checkpoint time {time.time() - start:.6f} seconds")
         model = trainee.model.cuda()
 
-        if not args.no_mlp:
-            start = time.time()
-            trainee_mlp = models.segment(model=models.flow_SNet3d2_1024_MLP())
-            trainee_mlp.load_state_dict(torch.load(mlp_ckpt, map_location='cuda')['state_dict'], strict=False)
-            print(f"Loading MLP segment time {time.time() - start:.6f} seconds")
-            model_mlp = trainee_mlp.model.cuda()
-        else:
-            print("Skipping MLP load (--no-mlp set).")
+        # The MLP is loaded even with --no-mlp: that flag only replaces its stack-order
+        # decision by the filenames, the 180° in-plane flips still come from the MLP.
+        start = time.time()
+        trainee_mlp = models.segment(model=models.flow_SNet3d2_1024_MLP())
+        trainee_mlp.load_state_dict(torch.load(mlp_ckpt, map_location='cuda')['state_dict'], strict=False)
+        print(f"Loading MLP segment time {time.time() - start:.6f} seconds")
+        model_mlp = trainee_mlp.model.cuda()
+        if args.no_mlp:
+            print("--no-mlp: stack order from filenames; MLP kept for the 180° flips.")
         print("Models loaded successfully.")
 
 
@@ -191,7 +192,8 @@ def main():
                     synth=args.synth,
                     save_folder=save_folder_path,
                     slice_res = slice_res,
-                    suffix=args.suffix
+                    suffix=args.suffix,
+                    no_mlp=args.no_mlp,
                 )
 
                 try:
